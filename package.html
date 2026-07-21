@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>音游谱面打包器 - WebCat优化版</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <style>
+        body { font-family: "Microsoft YaHei", sans-serif; margin:0; padding:20px; background:#f5f5f5; }
+        .container { background:white; padding:25px; border-radius:12px; box-shadow:0 4px 15px rgba(0,0,0,0.1); }
+        h1 { text-align:center; }
+        input, textarea { width:100%; padding:10px; margin:8px 0; border:1px solid #ccc; border-radius:6px; box-sizing:border-box; }
+        textarea { height:160px; }
+        button {
+            background:#0066ff; color:white; padding:14px 20px; border:none; border-radius:8px;
+            font-size:16px; margin:10px 5px; cursor:pointer;
+        }
+        button:hover { background:#0052cc; }
+        .status { padding:15px; margin:15px 0; border-radius:8px; font-weight:bold; }
+        .download-link { 
+            display:block; margin:15px 0; padding:15px; background:#e3f2fd; 
+            border:2px dashed #2196f3; border-radius:8px; text-align:center; font-size:18px;
+            word-break:break-all;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎵 音游谱面打包器</h1>
+
+        <!-- 元数据部分（同之前） -->
+        <div><label>曲目名称 (Name) *</label><input type="text" id="name" placeholder="Dance with Silence"></div>
+        <div><label>难度 (level) *</label><input type="text" id="level" placeholder="IF Lv.9+"></div>
+        <div><label>谱师 (Charter) *</label><input type="text" id="charter" placeholder="车水马龙"></div>
+        <div><label>艺术家 (Artist) *</label><input type="text" id="artist" placeholder="Camellia"></div>
+        <div><label>难度数值 (levelCode) *</label><input type="number" id="levelCode" step="0.1" placeholder="9.5"></div>
+        <div><label>曲绘创作者 (Image) *</label><input type="text" id="imageCreator" value="#" placeholder="#"></div>
+        <div><label>Offset (毫秒) *</label><input type="number" id="offset" placeholder="6"></div>
+
+        <div><label>上传音乐 *</label><input type="file" id="musicFile" accept="audio/*"></div>
+        <div><label>上传曲绘图片 *</label><input type="file" id="imageFile" accept="image/*"></div>
+
+        <div>
+            <label>谱面 Chart.json</label>
+            <input type="file" id="chartFile" accept=".json" style="margin:8px 0;">
+            <textarea id="chartTextarea" placeholder="或直接粘贴谱面JSON内容..."></textarea>
+        </div>
+
+        <button onclick="packageChart()">开始打包</button>
+
+        <div id="status" class="status" style="display:none;"></div>
+        <div id="downloadArea"></div>
+    </div>
+
+    <script>
+        async function packageChart() {
+            const status = document.getElementById('status');
+            const downloadArea = document.getElementById('downloadArea');
+            downloadArea.innerHTML = '';
+            status.style.display = 'block';
+
+            const name = document.getElementById('name').value.trim();
+            if (!name) return showStatus('请填写曲目名称', 'red');
+
+            const musicFile = document.getElementById('musicFile').files[0];
+            const imageFile = document.getElementById('imageFile').files[0];
+
+            if (!musicFile || !imageFile) return showStatus('请上传音乐和曲绘图片', 'red');
+
+            let chartContent = document.getElementById('chartTextarea').value.trim();
+            const chartFile = document.getElementById('chartFile').files[0];
+
+            if (chartFile) {
+                chartContent = await chartFile.text();
+            }
+            if (!chartContent) return showStatus('请提供谱面内容', 'red');
+
+            status.innerHTML = '正在生成ZIP文件，请稍等...';
+            status.style.background = '#fff3cd';
+
+            const zip = new JSZip();
+
+            // Info.json
+            const info = {
+                level: document.getElementById('level').value.trim() || "Lv.?",
+                Charter: document.getElementById('charter').value.trim() || "未知",
+                Name: name,
+                Artist: document.getElementById('artist').value.trim() || "未知",
+                levelCode: parseFloat(document.getElementById('levelCode').value) || 0,
+                Image: document.getElementById('imageCreator').value.trim() || "#",
+                offset: parseFloat(document.getElementById('offset').value) || 0
+            };
+            zip.file("Info.json", JSON.stringify(info, null, 2));
+
+            // Chart.json
+            zip.file("Chart.json", chartContent);
+
+            // 音乐
+            const musicExt = musicFile.name.split('.').pop().toLowerCase();
+            zip.file(`Audio.${musicExt}`, musicFile);
+
+            // 曲绘
+            const imgExt = imageFile.name.split('.').pop().toLowerCase();
+            zip.file(`Image.${imgExt}`, imageFile);
+
+            try {
+                const blob = await zip.generateAsync({type: "blob"});
+                
+                // 方法1：尝试传统下载
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `${name}.zip`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+
+                // 方法2：提供备用下载链接（适合WebCat）
+                downloadArea.innerHTML = `
+                    <div class="download-link">
+                        <strong>📥 下载链接（WebCat推荐）</strong><br><br>
+                        <a href="${url}" download="${name}.zip" style="color:#0066ff; font-size:17px;">
+                            点击此处下载 ${name}.zip
+                        </a>
+                        <br><br>
+                        <small>如果无法直接下载，长按上方链接 → “下载链接” 或 “保存”</small>
+                    </div>
+                `;
+
+                showStatus(`✅ 打包完成！<br>如果没自动下载，请点击上方蓝色链接`, 'green');
+                
+            } catch (e) {
+                showStatus('打包失败：' + e.message, 'red');
+            }
+        }
+
+        function showStatus(msg, color) {
+            const status = document.getElementById('status');
+            status.innerHTML = msg;
+            status.style.background = color === 'green' ? '#d4edda' : color === 'red' ? '#f8d7da' : '#fff3cd';
+        }
+    </script>
+</body>
+</html>
