@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Malody谱面转Mixlody</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .input-section, .output-section {
+            margin-bottom: 20px;
+        }
+        textarea {
+            width: 100%;
+            height: 200px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            resize: vertical;
+            font-family: monospace;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            margin: 10px 0;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        .visualization {
+            position: relative;
+            height: 400px;
+            border: 1px solid #ddd;
+            margin-top: 20px;
+            overflow: hidden;
+            background-color: #222;
+            perspective: 1000px;
+        }
+        .note {
+            position: absolute;
+            width: 30px;
+            height: 30px;
+            background-color: #e74c3c;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            top: 0;
+            opacity: 0;
+            will-change: transform, top;
+            transition: top 0.1s linear, height 0.1s linear;
+        }
+        .note.hold {
+            width: 40px;
+            height: 0;
+            background-color: #3498db;
+            border-radius: 0;
+        }
+        .note.drag {
+            background: #9b59b6;
+            border-radius: 30% 70% 70% 30% / 30% 30% 70% 70%;
+        }
+        .timeline {
+            position: absolute;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background-color: #00ff00;
+            bottom: 20%;
+            z-index: 10;
+            box-shadow: 0 0 10px #00ff00;
+        }
+        .controls {
+            margin: 10px 0;
+            display: flex;
+            gap: 10px;
+        }
+        .speed-control {
+            display: flex;
+            align-items: center;
+        }
+        .error {
+            color: red;
+            margin-top: 10px;
+        }
+        .success {
+            color: green;
+            margin-top: 10px;
+        }
+        .file-input {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        #fileInfo {
+            font-style: italic;
+            color: #666;
+        }
+        .output-buttons {
+            display: flex;
+            gap: 10px;
+        }
+        button.download {
+            background-color: #2196F3;
+        }
+        button.download:hover {
+            background-color: #0b7dda;
+        }
+        .judge-line {
+            position: absolute;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background-color: rgba(255, 255, 255, 0.3);
+            bottom: 20%;
+            z-index: 5;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Malody谱面转Mixlody</h1>
+        
+        <div class="input-section">
+            <h3>上传Malody谱面文件 (.mc)：</h3>
+            <div class="file-input">
+                <input type="file" id="fileUpload" accept=".mc">
+                <span id="fileInfo">未选择文件</span>
+            </div>
+            <button id="convertBtn" disabled>转换为Mixlody格式</button>
+            <button id="visualizeBtn" disabled>可视化谱面</button>
+        </div>
+
+        <div class="controls">
+            <button id="playBtn" disabled>播放</button>
+            <button id="stopBtn" disabled>停止</button>
+            <div class="speed-control">
+                <label for="speed">速度:</label>
+                <input type="range" id="speed" min="0.5" max="2" step="0.1" value="1">
+                <span id="speedValue">1x</span>
+            </div>
+        </div>
+
+        <div class="visualization" id="visualization">
+            <div class="judge-line"></div>
+            <div class="timeline"></div>
+        </div>
+
+        <div class="output-section">
+            <h3>转换结果：</h3>
+            <textarea id="outputChart" readonly></textarea>
+            <div class="output-buttons">
+                <button id="copyBtn" disabled>复制到剪贴板</button>
+                <button id="downloadBtn" class="download" disabled>下载JSON</button>
+            </div>
+            <div id="message" class=""></div>
+        </div>
+    </div>
+
+    <script>
+        // 全局变量
+        let currentNotes = [];
+        let animationId = null;
+        let startTime = 0;
+        let isPlaying = false;
+        let bpmEvents = [];
+        let lastBpmEvent = { bpm: 145, beat: [0, 0, 1] };
+
+        // DOM元素
+        const fileUpload = document.getElementById('fileUpload');
+        const fileInfo = document.getElementById('fileInfo');
+        const outputChart = document.getElementById('outputChart');
+        const convertBtn = document.getElementById('convertBtn');
+        const visualizeBtn = document.getElementById('visualizeBtn');
+        const playBtn = document.getElementById('playBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const copyBtn = document.getElementById('copyBtn');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const messageDiv = document.getElementById('message');
+        const visualization = document.getElementById('visualization');
+        const speedControl = document.getElementById('speed');
+        const speedValue = document.getElementById('speedValue');
+
+        // 事件监听
+        fileUpload.addEventListener('change', handleFileUpload);
+        convertBtn.addEventListener('click', convertChart);
+        visualizeBtn.addEventListener('click', visualizeChart);
+        playBtn.addEventListener('click', playVisualization);
+        stopBtn.addEventListener('click', stopVisualization);
+        copyBtn.addEventListener('click', copyToClipboard);
+        downloadBtn.addEventListener('click', downloadJSON);
+        speedControl.addEventListener('input', updateSpeed);
+
+        // 处理文件上传
+        function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            fileInfo.textContent = file.name;
+            convertBtn.disabled = false;
+            showMessage('文件已选择，点击"转换为简化格式"开始处理', 'success');
+        }
+
+        // 速度控制
+        function updateSpeed() {
+            const speed = speedControl.value;
+            speedValue.textContent = speed + 'x';
+            if (isPlaying) {
+                stopVisualization();
+                playVisualization();
+            }
+        }
+
+        // 转换函数
+        function convertChart() {
+            const file = fileUpload.files[0];
+            if (!file) {
+                showMessage('请先选择文件', 'error');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    // 解析.mc文件（实际上是JSON）
+                    const chartData = JSON.parse(e.target.result);
+                    bpmEvents = extractBpmEvents(chartData);
+                    
+                    if (bpmEvents.length > 0) {
+                        lastBpmEvent = bpmEvents[0];
+                    } else {
+                        lastBpmEvent = { bpm: 145, beat: [0, 0, 1] };
+                    }
+
+                    const simplifiedNotes = convertToSimplifiedFormat(chartData);
+                    currentNotes = simplifiedNotes;
+                    
+                    outputChart.value = JSON.stringify(simplifiedNotes, null, 2);
+                    showMessage('转换成功！', 'success');
+                    
+                    // 启用后续按钮
+                    visualizeBtn.disabled = false;
+                    copyBtn.disabled = false;
+                    downloadBtn.disabled = false;
+                } catch (e) {
+                    showMessage('转换失败: ' + e.message, 'error');
+                    console.error(e);
+                }
+            };
+            reader.onerror = function() {
+                showMessage('文件读取失败', 'error');
+            };
+            reader.readAsText(file);
+        }
+
+        // 提取BPM变化事件
+        function extractBpmEvents(chartData) {
+            const events = [];
+            
+            if (chartData.time && Array.isArray(chartData.time)) {
+                chartData.time.forEach(event => {
+                    if (event.bpm !== undefined && event.beat) {
+                        events.push({
+                            bpm: event.bpm,
+                            beat: event.beat
+                        });
+                    }
+                });
+            }
+            
+            // 按节拍排序
+            events.sort((a, b) => {
+                const aBeat = convertRawBeat(a.beat);
+                const bBeat = convertRawBeat(b.beat);
+                return aBeat - bBeat;
+            });
+            
+            return events;
+        }
+
+        // 转换为简化格式
+        function convertToSimplifiedFormat(data) {
+            const notes = [];
+            let idCounter = 1;
+            
+            if (!data.note || !Array.isArray(data.note)) {
+                throw new Error("谱面数据缺少note数组");
+            }
+
+            data.note.forEach(note => {
+                try {
+                    const xPos = (note.x !== undefined) ? note.x : Math.floor(Math.random() * 1000);
+                    const beat = note.beat || [0,0,1];
+                    const noteType = note.type || 1;
+                    
+                    // 计算时间
+                    let time = 0;
+                    if (bpmEvents.length > 0) {
+                        time = convertBeatToTime(beat);
+                    } else {
+                        const defaultBPM = 145;
+                        const rawBeat = convertRawBeat(beat);
+                        time = rawBeat * (60000 / defaultBPM);
+                    }
+
+                    // 类型转换表
+                    const typeMap = {
+                        1: 1,  // 普通音符
+                        3: 2,  // Hold
+                        4: 3   // Drag
+                    };
+                    
+                    const baseNote = {
+                        id: idCounter++,
+                        time: Math.round(time),
+                        x: Math.round(xPos),
+                        leixin: typeMap[noteType] || 1  // 默认普通音符
+                    };
+
+                    // 长按音符特殊处理
+                    if (noteType === 3 && note.endbeat) {
+                        let endTime = convertBeatToTime(note.endbeat);
+                        if (endTime < time) endTime = time + 500;
+                        baseNote.endtime = Math.round(endTime);
+                    }
+                    
+                    notes.push(baseNote);
+                } catch (e) {
+                    console.error("音符解析错误:", note, e);
+                }
+            });
+            
+            return notes.sort((a, b) => a.time - b.time);
+        }
+
+        // 将节拍转换为原始节拍值
+        function convertRawBeat(beat) {
+            if (!Array.isArray(beat) || beat.length < 3) return 0;
+            return beat[0] + beat[1] / beat[2];
+        }
+
+        // 将节拍转换为毫秒时间
+        function convertBeatToTime(beat) {
+            const rawBeat = convertRawBeat(beat);
+            let time = 0;
+            let lastBpmTime = 0;
+            let lastBpmBeat = 0;
+            let lastBpmValue = 145;
+            
+            // 找到当前节拍之前的最后一个BPM变化点
+            for (let i = 0; i < bpmEvents.length; i++) {
+                const event = bpmEvents[i];
+                const eventBeat = convertRawBeat(event.beat);
+                
+                if (eventBeat <= rawBeat) {
+                    lastBpmBeat = eventBeat;
+                    lastBpmValue = event.bpm;
+                    
+                    if (i > 0) {
+                        const prevEvent = bpmEvents[i-1];
+                        lastBpmTime = convertBeatToTime(prevEvent.beat);
+                    } else {
+                        lastBpmTime = 0;
+                    }
+                } else {
+                    break;
+                }
+            }
+            
+            // 计算时间
+            const beatsSinceLastBpm = rawBeat - lastBpmBeat;
+            time = lastBpmTime + beatsSinceLastBpm * (60000 / lastBpmValue);
+            
+            return time;
+        }
+
+        // 可视化函数（下落式）
+        function visualizeChart() {
+            try {
+                stopVisualization();
+                
+                // 清空可视化区域
+                visualization.innerHTML = `
+                    <div class="judge-line"></div>
+                    <div class="timeline"></div>
+                `;
+                
+                // 创建音符元素
+                currentNotes.forEach(note => {
+                    const element = document.createElement('div');
+                    element.className = note.leixin === 1 ? 'note' : 
+                                       note.leixin === 2 ? 'note hold' : 
+                                       'note drag';
+                    element.dataset.id = note.id;
+                    element.dataset.time = note.time;
+                    
+                    // 设置初始位置（从顶部开始）
+                    const xPercent = (note.x / 1000) * 100;
+                    element.style.left = `${xPercent}%`;
+                    element.style.top = `0%`;
+                    
+                    // 长按音符特殊处理
+                    if (note.leixin === 2 && note.endtime) {
+                        const duration = note.endtime - note.time;
+                        element.dataset.duration = duration;
+                        element.style.height = `0px`;
+                    }
+                    
+                    visualization.appendChild(element);
+                });
+                
+                // 启用播放按钮
+                playBtn.disabled = false;
+                stopBtn.disabled = false;
+                
+                showMessage('下落式可视化已准备，点击播放预览', 'success');
+            } catch (e) {
+                showMessage('可视化失败: ' + e.message, 'error');
+                console.error(e);
+            }
+        }
+
+        // 播放可视化（下落式动画）
+        function playVisualization() {
+            if (isPlaying) return;
+            
+            isPlaying = true;
+            startTime = performance.now();
+            const speed = parseFloat(speedControl.value);
+            const fallTime = 3000; // 下落总时间(ms)
+            
+            // 动画函数
+            function animate(currentTime) {
+                if (!isPlaying) return;
+                
+                const elapsed = (currentTime - startTime) * speed;
+                
+                // 更新音符位置
+                const notes = visualization.querySelectorAll('.note');
+                notes.forEach(note => {
+                    const noteTime = parseInt(note.dataset.time);
+                    const progress = (elapsed - noteTime + fallTime) / fallTime;
+                    
+                    if (progress >= 0 && progress <= 1) {
+                        note.style.opacity = '1';
+                        
+                        // 普通音符和拖拽音符
+                        if (!note.classList.contains('hold')) {
+                            note.style.top = `${progress * 80}%`; // 下落80%高度（留出判定线空间）
+                        } 
+                        // 长按音符
+                        else {
+                            const duration = parseInt(note.dataset.duration);
+                            const endProgress = (elapsed - noteTime - duration + fallTime) / fallTime;
+                            
+                            if (endProgress < 1) {
+                                const currentHeight = duration / 50; // 动态高度
+                                note.style.height = `${currentHeight}px`;
+                                note.style.top = `${progress * 80}%`;
+                            }
+                        }
+                    } else if (progress > 1) {
+                        note.style.opacity = '0'; // 完全落下后隐藏
+                    } else {
+                        note.style.opacity = '0'; // 未开始下落时隐藏
+                    }
+                });
+                
+                animationId = requestAnimationFrame(animate);
+            }
+            
+            animationId = requestAnimationFrame(animate);
+        }
+
+        // 停止可视化
+        function stopVisualization() {
+            isPlaying = false;
+            if (animationId) {
+                cancelAnimationFrame(animationId);
+                animationId = null;
+            }
+            
+            // 重置音符位置
+            const notes = visualization.querySelectorAll('.note');
+            notes.forEach(note => {
+                note.style.top = '0%';
+                note.style.opacity = '0';
+                if (note.classList.contains('hold')) {
+                    note.style.height = '0px';
+                }
+            });
+        }
+
+        // 复制到剪贴板
+        function copyToClipboard() {
+            outputChart.select();
+            document.execCommand('copy');
+            showMessage('已复制到剪贴板！', 'success');
+        }
+
+        // 下载JSON文件
+        function downloadJSON() {
+            if (!currentNotes || currentNotes.length === 0) {
+                showMessage('没有可下载的数据', 'error');
+                return;
+            }
+
+            const jsonData = JSON.stringify(currentNotes, null, 2);
+            const blob = new Blob([jsonData], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            
+            // 获取原始文件名（不带.mc扩展名）
+            const originalFileName = fileUpload.files[0].name.replace('.mc', '');
+            const fileName = `${originalFileName}_converted.json`;
+            
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = fileName;
+            document.body.appendChild(a);
+            a.click();
+            
+            // 清理
+            setTimeout(() => {
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            }, 100);
+            
+            showMessage('JSON文件下载已开始', 'success');
+        }
+
+        // 显示消息
+        function showMessage(msg, type) {
+            messageDiv.textContent = msg;
+            messageDiv.className = type;
+            setTimeout(() => {
+                messageDiv.textContent = '';
+                messageDiv.className = '';
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
