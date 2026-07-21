@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>音游谱面打包器 - WebCat优化版</title>
+    <title>Mixlody Charts Package</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <style>
         body { font-family: "Microsoft YaHei", sans-serif; margin:0; padding:20px; background:#f5f5f5; }
@@ -26,15 +26,14 @@
 </head>
 <body>
     <div class="container">
-        <h1>🎵 音游谱面打包器</h1>
+        <h1>Mixlody Charts Package</h1>
 
-        <!-- 元数据部分（同之前） -->
-        <div><label>曲目名称 (Name) *</label><input type="text" id="name" placeholder="Dance with Silence"></div>
-        <div><label>难度 (level) *</label><input type="text" id="level" placeholder="IF Lv.9+"></div>
-        <div><label>谱师 (Charter) *</label><input type="text" id="charter" placeholder="车水马龙"></div>
-        <div><label>艺术家 (Artist) *</label><input type="text" id="artist" placeholder="Camellia"></div>
+        <div><label>曲目名称 (Name) *</label><input type="text" id="name" placeholder="like：Dance with Silence"></div>
+        <div><label>难度 (level) *</label><input type="text" id="level" placeholder="IF Lv.?"></div>
+        <div><label>谱师 (Charter) *</label><input type="text" id="charter" placeholder="someone who makes the chart"></div>
+        <div><label>艺术家 (Artist) *</label><input type="text" id="artist" placeholder="someone who makes the music"></div>
         <div><label>难度数值 (levelCode) *</label><input type="number" id="levelCode" step="0.1" placeholder="9.5"></div>
-        <div><label>曲绘创作者 (Image) *</label><input type="text" id="imageCreator" value="#" placeholder="#"></div>
+        <div><label>曲绘创作者 (Image) *</label><input type="text" id="imageCreator" value="If you don't have or don't know this person, you can choose to enter "#"." placeholder="#"></div>
         <div><label>Offset (毫秒) *</label><input type="number" id="offset" placeholder="6"></div>
 
         <div><label>上传音乐 *</label><input type="file" id="musicFile" accept="audio/*"></div>
@@ -106,7 +105,7 @@
             try {
                 const blob = await zip.generateAsync({type: "blob"});
                 
-                // 方法1：尝试传统下载
+                
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
@@ -115,10 +114,10 @@
                 a.click();
                 document.body.removeChild(a);
 
-                // 方法2：提供备用下载链接（适合WebCat）
+                
                 downloadArea.innerHTML = `
                     <div class="download-link">
-                        <strong>📥 下载链接（WebCat推荐）</strong><br><br>
+                        <strong>📥 下载链接(若你不能弹出下载</strong><br><br>
                         <a href="${url}" download="${name}.zip" style="color:#0066ff; font-size:17px;">
                             点击此处下载 ${name}.zip
                         </a>
