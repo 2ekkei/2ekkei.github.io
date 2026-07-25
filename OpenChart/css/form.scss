@@ -1,0 +1,145 @@
+@mixin text-input {
+    background-color: transparent;
+    border: 0;
+    border-bottom: 3px solid $col-gray;
+    padding: 5px 3px;
+    color: $col-white;
+    outline: 0;
+
+    &:not(:disabled) {
+        &:hover,
+        &:focus {
+            background-color: $col-gray;
+        }
+
+        &:focus {
+            border-bottom-color: $col-purple;
+        }
+    }
+}
+
+.form-buttons {
+    margin-top: 20px;
+}
+
+.form-control {
+    margin-bottom: 12px;
+
+    &:last-child {
+        margin-bottom: 0;
+    }
+}
+
+.form-control-grid {
+    display: grid;
+    margin-bottom: 0;
+
+    .form-control {
+        margin-bottom: 0;
+    }
+}
+
+.form-control-grid-half {
+    grid-template-columns: 50% 50%;
+
+    .form-control {
+        padding-right: 8px;
+    }
+}
+
+.form-input {
+    &[type="range"] {
+        display: block;
+        width: 100%;
+    }
+
+    &[type="text"] {
+        display: block;
+        width: 100%;
+        margin-top: 10px;
+        @include text-input();
+    }
+}
+
+.form-input-inline {
+    &[type="text"] {
+        @include text-input();
+        width: 100px;
+    }
+}
+
+.form-label {
+    display: block;
+    text-transform: uppercase;
+    font-weight: bold;
+    margin-bottom: 10px;
+}
+
+.form-label-inline {
+    @extend .form-label;
+    display: inline-block;
+    margin: 4px 16px 4px 0;
+
+    .form-input {
+        position: relative;
+        vertical-align: bottom;
+        bottom: 1px;
+
+        &[type="checkbox"],
+        &[type="radio"] {
+            margin-right: 8px;
+        }
+    }
+}
+
+.form-label-dark {
+    color: $col-light-gray;
+}
+
+.form-label-light {
+    color: $col-very-light-gray;
+}
+
+.btn {
+    border: none;
+    font-weight: bold;
+    color: $col-white;
+    cursor: pointer;
+    border-radius: 3px;
+
+    &:disabled {
+        cursor: default;
+        user-select: none;
+        pointer-events: none;
+        background-color: $col-gray;
+        color: $col-light-gray;
+    }
+}
+
+.btn-primary {
+    background-color: $col-purple;
+
+    &:hover {
+        background-color: darken($col-purple, 3%);
+    }
+}
+
+.btn-secondary {
+    background-color: $col-light-gray;
+
+    &:hover {
+        background-color: darken($col-light-gray, 3%);
+    }
+}
+
+.btn-wide {
+    width: 100%;
+}
+
+.btn-thick {
+    padding: 16px 20px;
+}
+
+.btn-thin {
+    padding: 8px 12px;
+}
