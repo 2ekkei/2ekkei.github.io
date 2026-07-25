@@ -1,0 +1,68 @@
+.sidebar-container {
+    $sidebar-item-size: 32px;
+    $sidebar-item-spacing: 16px;
+
+    display: flex;
+    flex-direction: column;
+    background-color: $col-dark-gray;
+    line-height: 0;
+    overflow-y: auto;
+    padding: 16px;
+    user-select: none;
+
+    .material-icons-outlined {
+        font-size: $sidebar-item-size + 8px;
+        margin: -4px;
+
+        &.report-icon {
+            margin-bottom: -8px;
+        }
+    }
+
+    a,
+    span {
+        font-size: $sidebar-item-size;
+    }
+
+    a {
+        cursor: pointer;
+        color: $col-white;
+        opacity: 0.5;
+        margin-bottom: $sidebar-item-spacing;
+
+        &:hover {
+            opacity: 1;
+        }
+    }
+
+    img {
+        width: $sidebar-item-size;
+    }
+
+    .divider {
+        width: 100%;
+        height: 4px;
+        background-color: $col-gray;
+        margin-bottom: $sidebar-item-spacing;
+    }
+
+    .toolbar {
+        flex: 1;
+
+        display: flex;
+        align-content: flex-end;
+        flex-direction: column;
+    }
+
+    .footer {
+        display: flex;
+        align-content: flex-end;
+        flex-direction: column;
+
+        a {
+            &:last-child {
+                margin-bottom: 0;
+            }
+        }
+    }
+}

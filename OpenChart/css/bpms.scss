@@ -1,0 +1,31 @@
+@import "./colors";
+
+.bpm-list-container {
+    max-height: 140px;
+    overflow-y: auto;
+}
+
+.bpm-list-item {
+    padding: 14px 10px;
+    background-color: $col-gray;
+    cursor: pointer;
+
+    &:hover {
+        background-color: lighten($col-gray, 3%);
+    }
+
+    &.selected {
+        background-color: $col-light-gray;
+    }
+}
+
+.bpm-delete-btn {
+    float: right;
+    margin-top: -2px;
+
+    opacity: 0.5;
+
+    &:hover {
+        opacity: 1;
+    }
+}
