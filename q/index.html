@@ -4,110 +4,87 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>♪ 节奏狼人杀 · 音游企划社交推理</title>
-<!-- PeerJS CDN：WebRTC 点对点联机（无需自建服务器） -->
 <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <style>
 /* ============================================================
-   全局：霓虹音游主题
+   全局
    ============================================================ */
 *{ margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
-:root{
-  --purple:#8e2de2; --pink:#ff2e97; --blue:#00c6ff;
-  --bg0:#0f0524; --card:rgba(20,8,45,.72);
-  --line:rgba(255,255,255,.16);
-  --good:#36f5a1; --bad:#ff4d6d; --gold:#ffd700; --cyan:#00e5ff;
-}
+:root{ --purple:#8e2de2; --pink:#ff2e97; --blue:#00c6ff; --bg0:#0f0524; --card:rgba(20,8,45,.72);
+  --line:rgba(255,255,255,.16); --good:#36f5a1; --bad:#ff4d6d; --gold:#ffd700; --cyan:#00e5ff; }
 html,body{ height:100%; }
-body{
-  font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;
-  color:#eee; overflow:hidden; background:var(--bg0); touch-action:manipulation;
-}
+body{ font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif; color:#eee;
+  overflow:hidden; background:var(--bg0); touch-action:manipulation; }
 button{ touch-action:manipulation; user-select:none; -webkit-user-select:none; }
-#bg-anim{
-  position:fixed; inset:0; z-index:-2;
+#bg-anim{ position:fixed; inset:0; z-index:-2;
   background:linear-gradient(125deg,#1a0a3a 0%,#3b0a5a 25%,#6a1b9a 45%,#b3247a 65%,#1b2b6d 100%);
-  background-size:300% 300%; animation:gradientShift 16s ease-in-out infinite;
-}
-@keyframes gradientShift{
-  0%{background-position:0% 50%} 50%{background-position:100% 50%} 100%{background-position:0% 50%}
-}
+  background-size:300% 300%; animation:gradientShift 16s ease-in-out infinite; }
+@keyframes gradientShift{ 0%{background-position:0% 50%} 50%{background-position:100% 50%} 100%{background-position:0% 50%} }
 #eq{ position:fixed; left:0; right:0; bottom:0; height:46px; z-index:-1;
   display:flex; align-items:flex-end; justify-content:center; gap:4px; opacity:.5; pointer-events:none; }
-#eq i{ width:6px; background:linear-gradient(180deg,var(--pink),var(--blue)); border-radius:3px;
-  animation:beat .9s ease-in-out infinite; }
+#eq i{ width:6px; background:linear-gradient(180deg,var(--pink),var(--blue)); border-radius:3px; animation:beat .9s ease-in-out infinite; }
 @keyframes beat{ 0%,100%{height:6px} 50%{height:40px} }
 .note{ position:fixed; top:-12vh; z-index:-1; color:rgba(255,255,255,.6); pointer-events:none;
   animation:noteFall linear infinite; text-shadow:0 0 12px currentColor; }
-@keyframes noteFall{
-  from{ transform:translateY(-12vh) rotate(0deg); opacity:.85; }
-  to  { transform:translateY(115vh) rotate(360deg); opacity:0; }
-}
+@keyframes noteFall{ from{ transform:translateY(-12vh) rotate(0deg); opacity:.85; }
+  to{ transform:translateY(115vh) rotate(360deg); opacity:0; } }
 
-/* ---------- 屏幕显隐（class 控制，避免内联样式压过媒体查询） ---------- */
-.screen{ display:none !important; }
-.screen.active{ display:flex !important; }
-#screen-game.active{ display:grid !important; }
-@media (max-width:860px){ #screen-game.active{ display:flex !important; } }
+/* ---------- 屏幕显隐：display 一律由 JS showScreen 内联控制（优先级最高） ---------- */
+.screen{ display:none; }
 
-#screen-main{ width:100%; height:100vh; height:100dvh; flex-direction:column; align-items:center; justify-content:center; gap:14px; padding:16px; overflow:auto; }
-#screen-result{ width:100%; height:100vh; height:100dvh; flex-direction:column; align-items:center; justify-content:center; gap:14px; padding:16px; overflow:auto; }
-.main-card{
-  background:var(--card); border:1px solid var(--line); border-radius:20px; padding:28px 34px;
+#screen-main{ width:100%; height:100vh; height:100dvh; flex-direction:column; align-items:center;
+  justify-content:center; gap:14px; padding:16px; overflow:auto; }
+#screen-result{ width:100%; height:100vh; height:100dvh; flex-direction:column; align-items:center;
+  justify-content:center; gap:14px; padding:16px; overflow:auto; }
+.main-card{ background:var(--card); border:1px solid var(--line); border-radius:20px; padding:28px 34px;
   box-shadow:0 0 24px rgba(255,46,151,.25), 0 0 60px rgba(0,198,255,.15) inset;
-  backdrop-filter:blur(6px); max-width:520px; width:100%; text-align:center;
-}
+  backdrop-filter:blur(6px); max-width:520px; width:100%; text-align:center; }
 .title{ font-size:34px; letter-spacing:2px; background:linear-gradient(90deg,#ff2e97,#ffd700,#00e5ff);
   -webkit-background-clip:text; background-clip:text; color:transparent; filter:drop-shadow(0 0 12px rgba(255,46,151,.6)); }
 .subtitle{ color:#bbb; font-size:13px; margin:4px 0 18px; }
 .logo{ font-size:30px; animation:pulse 2s infinite; }
 @keyframes pulse{ 0%,100%{transform:scale(1)} 50%{transform:scale(1.15)} }
 .mode-select{ display:flex; gap:10px; justify-content:center; margin:10px 0; flex-wrap:wrap; }
-.mode-btn{
-  padding:10px 18px; border-radius:30px; border:1px solid var(--line); background:rgba(255,255,255,.06);
-  color:#eee; font-size:14px; cursor:pointer; transition:.2s; }
+.mode-btn{ padding:10px 18px; border-radius:30px; border:1px solid var(--line);
+  background:rgba(255,255,255,.06); color:#eee; font-size:14px; cursor:pointer; transition:.2s; }
 .mode-btn:hover{ box-shadow:0 0 12px var(--cyan); }
 .mode-btn:active{ transform:scale(.96); }
 .mode-btn.active{ background:linear-gradient(90deg,var(--purple),var(--pink)); border-color:transparent; box-shadow:0 0 16px var(--pink); }
 .player-count{ margin:12px 0; font-size:15px; }
 input[type=range]{ width:80%; accent-color:var(--pink); }
 .name-input{ margin:8px 0; }
-.name-input input,#room-code,#chat-input{
-  background:rgba(0,0,0,.35); border:1px solid var(--line); color:#eee; border-radius:8px; padding:8px 12px; font-size:14px; outline:none; }
+.name-input input,#room-code,#chat-input{ background:rgba(0,0,0,.35); border:1px solid var(--line);
+  color:#eee; border-radius:8px; padding:8px 12px; font-size:14px; outline:none; }
 .name-input input:focus,#room-code:focus,#chat-input:focus{ border-color:var(--cyan); box-shadow:0 0 10px rgba(0,229,255,.4); }
-.big-btn{
-  margin-top:12px; padding:13px 40px; border-radius:30px; border:none; font-size:17px; font-weight:700; cursor:pointer;
-  background:linear-gradient(90deg,#ff2e97,#8e2de2); color:#fff; box-shadow:0 0 20px rgba(255,46,151,.6);
-  transition:.2s; }
+.big-btn{ margin-top:12px; padding:13px 40px; border-radius:30px; border:none; font-size:17px; font-weight:700;
+  cursor:pointer; background:linear-gradient(90deg,#ff2e97,#8e2de2); color:#fff;
+  box-shadow:0 0 20px rgba(255,46,151,.6); transition:.2s; }
 .big-btn:hover{ transform:translateY(-2px); box-shadow:0 0 30px rgba(255,46,151,.9); }
 .big-btn:disabled{ opacity:.5; cursor:not-allowed; transform:none; }
 .online-box{ margin-top:8px; }
-.online-row{ display:flex; gap:8px; justify-content:center; align-items:center; }
+.online-row{ display:flex; gap:8px; justify-content:center; align-items:center; flex-wrap:wrap; }
 .online-status{ font-size:12px; color:#9ad; margin-top:8px; line-height:1.6; }
 .roles-help{ max-width:760px; display:flex; flex-wrap:wrap; gap:8px; justify-content:center; }
-.role-chip{
-  background:var(--card); border:1px solid var(--line); border-radius:12px; padding:8px 12px; font-size:12px;
-  display:flex; align-items:center; gap:6px; box-shadow:0 0 8px rgba(0,198,255,.15); }
+.role-chip{ background:var(--card); border:1px solid var(--line); border-radius:12px; padding:8px 12px;
+  font-size:12px; display:flex; align-items:center; gap:6px; box-shadow:0 0 8px rgba(0,198,255,.15); }
 .role-chip b{ font-size:13px; }
 
 /* ============================================================
-   游戏界面（桌面：三栏网格）
+   游戏界面（桌面三栏网格；display 由 JS 决定）
    ============================================================ */
-#screen-game{
-  width:100%; height:100vh; height:100dvh; padding:8px; gap:8px;
-  grid-template-rows:54px 1fr 66px; grid-template-columns:215px 1fr 255px;
-}
-#topbar{
-  grid-column:1/-1; display:flex; align-items:center; gap:14px; padding:0 12px; flex-wrap:wrap;
-  background:var(--card); border:1px solid var(--line); border-radius:12px; backdrop-filter:blur(4px);
-}
-.tb{ font-size:14px; padding:4px 10px; border-radius:16px; background:rgba(0,0,0,.3); white-space:nowrap; flex-shrink:0; }
+#screen-game{ width:100%; height:100vh; height:100dvh; padding:8px; gap:8px;
+  grid-template-rows:54px 1fr 66px; grid-template-columns:215px 1fr 255px; }
+#topbar{ grid-column:1/-1; display:flex; align-items:center; gap:14px; padding:0 12px; flex-wrap:wrap;
+  background:var(--card); border:1px solid var(--line); border-radius:12px; backdrop-filter:blur(4px); }
+.tb{ font-size:14px; padding:4px 10px; border-radius:16px; background:rgba(0,0,0,.3);
+  white-space:nowrap; flex-shrink:0; min-width:0; }
 .tb b{ color:var(--gold); }
-.quit{ margin-left:auto; padding:6px 14px; border-radius:20px; border:1px solid var(--bad); background:transparent; color:#ff8fa3; cursor:pointer; flex-shrink:0; }
+.quit{ margin-left:auto; padding:6px 14px; border-radius:20px; border:1px solid var(--bad);
+  background:transparent; color:#ff8fa3; cursor:pointer; flex-shrink:0; }
 #left{ background:var(--card); border:1px solid var(--line); border-radius:12px; padding:10px; overflow-y:auto; }
 #left h3{ font-size:13px; color:var(--cyan); margin-bottom:8px; }
-.player-card{
-  border:1px solid var(--line); border-radius:10px; padding:8px 10px; margin-bottom:7px; cursor:default;
-  background:rgba(0,0,0,.25); transition:.2s; }
+.player-card{ border:1px solid var(--line); border-radius:10px; padding:8px 10px; margin-bottom:7px;
+  cursor:default; background:rgba(0,0,0,.25); transition:.2s; }
 .player-card.dead{ opacity:.45; filter:grayscale(.6); }
 .player-card.me{ border-color:var(--gold); box-shadow:0 0 12px rgba(255,215,0,.5); }
 .player-card.leader{ border-color:var(--gold); }
@@ -115,60 +92,52 @@ input[type=range]{ width:80%; accent-color:var(--pink); }
 .p-name{ font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .p-meta{ display:flex; justify-content:space-between; font-size:12px; color:#cbb; margin-top:3px; }
 .p-fac.bad{ color:var(--bad); } .p-fac.good{ color:var(--good); }
-#middle{ background:var(--card); border:1px solid var(--line); border-radius:12px; padding:10px; overflow:hidden; display:flex; flex-direction:column; }
+#middle{ background:var(--card); border:1px solid var(--line); border-radius:12px; padding:10px;
+  overflow:hidden; display:flex; flex-direction:column; }
 #log{ flex:1; overflow-y:auto; font-size:13px; line-height:1.65; padding-right:6px; -webkit-overflow-scrolling:touch; }
 #log::-webkit-scrollbar{ width:6px; } #log::-webkit-scrollbar-thumb{ background:var(--pink); border-radius:3px; }
 .log-line{ padding:3px 8px; border-radius:6px; margin:2px 0; animation:slideIn .3s; word-break:break-word; }
 @keyframes slideIn{ from{opacity:0; transform:translateX(10px)} to{opacity:1; transform:none} }
-.log-line.system{ color:#9cf; }
-.log-line.night{ color:#b39ddb; background:rgba(90,30,150,.18); }
-.log-line.day{ color:#ffe082; background:rgba(255,180,0,.12); }
-.log-line.vote{ color:#80d8ff; }
-.log-line.dead{ color:#ff8fa3; font-weight:600; }
-.log-line.leader{ color:var(--gold); font-weight:700; }
-.log-line.warn{ color:#ffb74d; }
-.log-line.fake{ color:#ff7043; font-style:italic; }
-.log-line.bug{ color:#a5d6a7; }
-.log-line.chat{ color:#c7f9cc; }
-.log-line.result{ color:#b3e5fc; background:rgba(0,150,200,.15); }
-.log-line.private{ color:#ffd54f; }
+.log-line.system{ color:#9cf; } .log-line.night{ color:#b39ddb; background:rgba(90,30,150,.18); }
+.log-line.day{ color:#ffe082; background:rgba(255,180,0,.12); } .log-line.vote{ color:#80d8ff; }
+.log-line.dead{ color:#ff8fa3; font-weight:600; } .log-line.leader{ color:var(--gold); font-weight:700; }
+.log-line.warn{ color:#ffb74d; } .log-line.fake{ color:#ff7043; font-style:italic; }
+.log-line.bug{ color:#a5d6a7; } .log-line.chat{ color:#c7f9cc; }
+.log-line.result{ color:#b3e5fc; background:rgba(0,150,200,.15); } .log-line.private{ color:#ffd54f; }
 #right{ display:flex; flex-direction:column; gap:8px; overflow:hidden; }
-#action-area{
-  flex:1; background:var(--card); border:1px solid var(--line); border-radius:12px; padding:12px; overflow-y:auto;
-  -webkit-overflow-scrolling:touch;
-}
+#action-area{ flex:1; background:var(--card); border:1px solid var(--line); border-radius:12px;
+  padding:12px; overflow-y:auto; -webkit-overflow-scrolling:touch; }
 .action-title{ font-size:15px; font-weight:700; color:var(--pink); margin-bottom:8px; text-shadow:0 0 8px rgba(255,46,151,.6); }
 .skill-card{ border:1px dashed; border-radius:10px; padding:8px; font-size:12px; margin-bottom:8px; background:rgba(0,0,0,.25); }
 .skill-icon{ font-size:22px; margin-right:6px; }
 .target-list{ display:flex; flex-direction:column; gap:6px; margin:6px 0; }
-.target-btn{
-  padding:9px 12px; border-radius:10px; border:1px solid var(--line); background:rgba(0,0,0,.3); color:#eee;
-  font-size:13px; cursor:pointer; text-align:left; transition:.15s; }
+.target-btn{ padding:9px 12px; border-radius:10px; border:1px solid var(--line); background:rgba(0,0,0,.3);
+  color:#eee; font-size:13px; cursor:pointer; text-align:left; transition:.15s; }
 .target-btn:hover{ border-color:var(--cyan); box-shadow:0 0 10px rgba(0,229,255,.5); transform:translateX(3px); }
 .target-btn:active{ transform:scale(.97); border-color:var(--pink); }
 .target-btn.ok{ border-color:var(--good); color:var(--good); }
-.skip-btn{ margin-top:8px; padding:7px; width:100%; border-radius:10px; border:1px dashed #666; background:transparent; color:#aaa; cursor:pointer; }
+.skip-btn{ margin-top:8px; padding:7px; width:100%; border-radius:10px; border:1px dashed #666;
+  background:transparent; color:#aaa; cursor:pointer; }
 .waiting{ color:#9ad; font-size:13px; margin-top:8px; }
 .hint{ color:#777; font-size:11px; margin-top:10px; line-height:1.6; }
-#bottom{
-  grid-column:1/-1; display:flex; align-items:center; gap:8px; padding:8px 10px; flex-wrap:wrap;
-  background:var(--card); border:1px solid var(--line); border-radius:12px;
-}
+#bottom{ grid-column:1/-1; display:flex; align-items:center; gap:8px; padding:8px 10px; flex-wrap:wrap;
+  background:var(--card); border:1px solid var(--line); border-radius:12px; }
 #quick-btns{ display:flex; gap:6px; flex-wrap:wrap; }
-.quick-btn{ padding:6px 12px; border-radius:20px; border:1px solid var(--line); background:rgba(0,0,0,.3); color:#eae; font-size:12px; cursor:pointer; }
+.quick-btn{ padding:6px 12px; border-radius:20px; border:1px solid var(--line); background:rgba(0,0,0,.3);
+  color:#eae; font-size:12px; cursor:pointer; }
 .quick-btn:hover{ border-color:var(--pink); }
 .quick-btn:active{ transform:scale(.95); }
 .chat-row{ display:flex; gap:6px; margin-left:auto; flex:1; min-width:200px; }
 #chat-input{ flex:1; }
 
 /* 大厅座位管理 */
-.lobby-row{ display:flex; align-items:center; justify-content:space-between; gap:8px;
-  padding:8px 10px; border:1px solid var(--line); border-radius:10px; margin:5px 0; background:rgba(0,0,0,.25); font-size:13px; }
+.lobby-row{ display:flex; align-items:center; justify-content:space-between; gap:8px; padding:8px 10px;
+  border:1px solid var(--line); border-radius:10px; margin:5px 0; background:rgba(0,0,0,.25); font-size:13px; }
 .lobby-row span{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.lobby-btn{ padding:6px 12px; border-radius:14px; border:1px solid var(--cyan); background:rgba(0,229,255,.1); color:var(--cyan); font-size:12px; cursor:pointer; flex-shrink:0; }
+.lobby-btn{ padding:6px 12px; border-radius:14px; border:1px solid var(--cyan); background:rgba(0,229,255,.1);
+  color:var(--cyan); font-size:12px; cursor:pointer; flex-shrink:0; }
 .lobby-btn.danger{ border-color:var(--bad); background:rgba(255,77,109,.12); color:#ff8fa3; }
 
-/* 操作面板折叠按钮（仅手机端显示） */
 .sheet-toggle{ display:none; }
 
 /* 结算 */
@@ -179,48 +148,45 @@ input[type=range]{ width:80%; accent-color:var(--pink); }
 #result-sub{ color:#bbb; font-size:15px; }
 
 /* ============================================================
-   移动端（≤860px）：纵向单列 + 操作面板可折叠
+   移动端（≤1024px）：纵向单列 + 操作面板可折叠
    ============================================================ */
-@media (max-width:860px){
-  #screen-game.active{ display:flex !important; flex-direction:column; height:100vh; height:100dvh; padding:0; gap:0; }
-  /* 顶部状态栏：自动换行、防溢出，绝不横向飞出 */
-  #topbar{ order:0; flex-shrink:0; width:100%; max-width:100vw; border-radius:0; padding:5px 8px; gap:4px;
-    flex-wrap:wrap; overflow:hidden; font-size:11px; }
-  .tb{ flex:0 0 auto; font-size:11px; padding:3px 7px; }
-  .quit{ margin-left:auto; padding:4px 10px; font-size:11px; }
-  /* 玩家列表：顶部横向滑动 */
-  #left{ order:1; flex-shrink:0; border-radius:0; max-height:128px; padding:8px; border-left:0; border-right:0; }
+@media (max-width:1024px){
+  html,body{ overflow-x:hidden; }
+  /* 游戏屏布局由 JS 内联 display:flex 控制；这里只调整内部排列 */
+  #screen-game{ flex-direction:column; height:100vh; height:100dvh; padding:0; gap:0; overflow:hidden; }
+  #topbar{ order:0; flex-shrink:0; width:100%; max-width:100%; min-width:0; border-radius:0;
+    padding:4px 6px; gap:4px; flex-wrap:wrap; overflow:hidden; }
+  .tb{ flex:0 0 auto; font-size:11px; padding:3px 6px; min-width:0; }
+  .quit{ flex:0 0 auto; margin-left:auto; padding:3px 8px; font-size:11px; }
+  #left{ order:1; flex:0 0 auto; border-radius:0; max-height:104px; padding:8px; border-left:0; border-right:0; }
   #player-list{ display:flex; gap:8px; overflow-x:auto; padding-bottom:4px; -webkit-overflow-scrolling:touch; }
-  .player-card{ min-width:126px; margin-bottom:0; flex-shrink:0; }
-  /* 日志区：占据剩余高度 */
-  #middle{ order:2; flex:1; min-height:0; border-radius:0; border-left:0; border-right:0; }
+  .player-card{ min-width:120px; margin-bottom:0; flex-shrink:0; }
+  #middle{ order:2; flex:1 1 auto; min-height:0; border-radius:0; border-left:0; border-right:0; }
   #log{ font-size:13px; }
-  /* 操作面板：日志正下方，内部滚动，可折叠 */
-  #right{ order:3; flex-shrink:0; border-radius:0; background:var(--card); border-top:1px solid var(--line);
-    display:flex; flex-direction:column; gap:0; }
+  #right{ order:3; flex:0 1 auto; border-radius:0; background:var(--card); border-top:1px solid var(--line);
+    display:flex; flex-direction:column; gap:0; min-height:0; }
   #right.show{ border-top:2px solid var(--pink); }
   .sheet-toggle{ display:block; width:100%; text-align:center; background:rgba(255,255,255,.06);
-    border:none; border-bottom:1px solid var(--line); color:var(--cyan); font-size:12px; padding:5px; cursor:pointer; }
-  #action-area{ flex:1; max-height:38vh; border-radius:0; border:none; padding:8px 12px; }
+    border:none; border-bottom:1px solid var(--line); color:var(--cyan); font-size:12px; padding:4px; cursor:pointer; }
+  #action-area{ flex:1; max-height:32vh; min-height:44px; border-radius:0; border:none; padding:8px 10px; }
   #right.collapsed #action-area{ display:none; }
-  /* 底部聊天栏：单行 + 快捷按钮横滑 */
-  #bottom{ order:4; flex-shrink:0; border-radius:0; flex-wrap:nowrap; padding:6px 8px;
+  #bottom{ order:4; flex:0 0 auto; border-radius:0; flex-wrap:nowrap; padding:6px 8px;
     padding-bottom:calc(6px + env(safe-area-inset-bottom,0px)); }
   #quick-btns{ flex:0 0 auto; flex-wrap:nowrap; overflow-x:auto; -webkit-overflow-scrolling:touch; }
   .quick-btn{ flex-shrink:0; }
-  .chat-row{ margin-left:6px; min-width:120px; }
-  /* 触控放大 */
+  .chat-row{ margin-left:6px; min-width:110px; }
   .target-btn{ padding:12px 14px; font-size:15px; }
   .skip-btn{ padding:10px; font-size:14px; }
   .lobby-btn{ padding:8px 14px; font-size:13px; }
   .result-table{ font-size:12px; }
   .result-table th,.result-table td{ padding:6px 8px; }
+  .main-card{ padding:22px 20px; }
+  .title{ font-size:28px; }
 }
 </style>
 </head>
 <body>
 
-<!-- 背景动画层 -->
 <div id="bg-anim"></div>
 <div id="eq"></div>
 
@@ -229,7 +195,7 @@ input[type=range]{ width:80%; accent-color:var(--pink); }
   <div class="main-card">
     <div class="logo">♪ ♫ ♬</div>
     <h1 class="title">节奏狼人杀</h1>
-    <div class="subtitle">音游企划 · 社交推理 · 谁是隐藏在企划里的坏人</div>
+    <div class="subtitle">音游企划 · 社交推理 · v5</div>
     <div class="mode-select">
       <button class="mode-btn active" id="btn-ai" onclick="selectMode('ai')">🤖 AI对战</button>
       <button class="mode-btn" id="btn-online" onclick="selectMode('online')">🌐 联机模式</button>
@@ -246,8 +212,8 @@ input[type=range]{ width:80%; accent-color:var(--pink); }
         <input id="room-code" maxlength="4" placeholder="房间码" style="text-transform:uppercase">
         <button class="mode-btn" onclick="joinRoom()">🔑 加入房间</button>
       </div>
-      <div class="online-status" id="online-status">联机（PeerJS/WebRTC）：把本页发布到 GitHub Pages 等 HTTPS 地址后，<br>
-      房主点「创建房间」生成房间码，朋友在任意设备打开同一网址输入房间码即可加入。<br>无需自建服务器。断开连接视为退出房间。</div>
+      <div class="online-status" id="online-status">联机（PeerJS/WebRTC）：发布到 GitHub Pages 等 HTTPS 地址后，
+      房主创建房间生成房间码，朋友打开同一网址输入房间码即可加入。<br>断开连接视为退出房间；房主可踢人/加人机。</div>
     </div>
   </div>
   <div class="roles-help" id="roles-help"></div>
@@ -263,10 +229,7 @@ input[type=range]{ width:80%; accent-color:var(--pink); }
     <span class="tb" id="mode-label">…</span>
     <button class="quit" id="btn-quit" onclick="quitGame()">✖ 退出</button>
   </div>
-  <div id="left">
-    <h3>🎭 玩家列表</h3>
-    <div id="player-list"></div>
-  </div>
+  <div id="left"><h3>🎭 玩家列表</h3><div id="player-list"></div></div>
   <div id="middle"><div id="log"></div></div>
   <div id="right">
     <button class="sheet-toggle" id="sheet-toggle" onclick="toggleSheet()">▼ 收起操作面板</button>
@@ -290,9 +253,7 @@ input[type=range]{ width:80%; accent-color:var(--pink); }
 </div>
 
 <script>
-/* ================================================================
-   一、基础工具 & 音频
-   ================================================================ */
+/* ============ 基础 ============ */
 function $(id){ return document.getElementById(id); }
 function rand(n){ return Math.floor(Math.random()*n); }
 function pick(arr){ return arr.length? arr[rand(arr.length)] : null; }
@@ -317,24 +278,22 @@ function tone(freq, dur=0.12, type='sine', vol=0.15, delayT=0, slideTo=null){
 function sfx(name){
   if(!actx) return;
   switch(name){
-    case 'click':    tone(700,.06,'square',.08); break;
-    case 'vote':     tone(520,.09,'square',.10); tone(780,.12,'square',.10,.09); break;
-    case 'night':    tone(220,.5,'sine',.12,0,120); tone(330,.4,'sine',.08,.3); break;
-    case 'day':      tone(660,.1,'triangle',.12); tone(880,.1,'triangle',.12,.08); tone(1100,.14,'triangle',.12,.16); break;
-    case 'eliminate':tone(400,.2,'sawtooth',.12,0,150); tone(200,.3,'sawtooth',.10,.15,80); break;
-    case 'win':      [523,659,784,1046].forEach((f,i)=>tone(f,.18,'triangle',.12,i*.12)); break;
-    case 'lose':     [400,350,300,220].forEach((f,i)=>tone(f,.2,'sine',.12,i*.15)); break;
-    case 'start':    tone(440,.1,'square',.1); tone(660,.1,'square',.1,.1); tone(880,.15,'square',.1,.2); break;
-    case 'bug':      [800,600,800].forEach((f,i)=>tone(f,.1,'square',.1,i*.1)); break;
-    case 'fake':     tone(300,.15,'sawtooth',.1,0,600); break;
-    case 'leader':   tone(523,.12,'triangle',.12); tone(659,.12,'triangle',.12,.1); tone(784,.16,'triangle',.12,.2); break;
+    case 'click': tone(700,.06,'square',.08); break;
+    case 'vote': tone(520,.09,'square',.10); tone(780,.12,'square',.10,.09); break;
+    case 'night': tone(220,.5,'sine',.12,0,120); tone(330,.4,'sine',.08,.3); break;
+    case 'day': tone(660,.1,'triangle',.12); tone(880,.1,'triangle',.12,.08); tone(1100,.14,'triangle',.12,.16); break;
+    case 'eliminate': tone(400,.2,'sawtooth',.12,0,150); tone(200,.3,'sawtooth',.10,.15,80); break;
+    case 'win': [523,659,784,1046].forEach((f,i)=>tone(f,.18,'triangle',.12,i*.12)); break;
+    case 'lose': [400,350,300,220].forEach((f,i)=>tone(f,.2,'sine',.12,i*.15)); break;
+    case 'start': tone(440,.1,'square',.1); tone(660,.1,'square',.1,.1); tone(880,.15,'square',.1,.2); break;
+    case 'bug': [800,600,800].forEach((f,i)=>tone(f,.1,'square',.1,i*.1)); break;
+    case 'fake': tone(300,.15,'sawtooth',.1,0,600); break;
+    case 'leader': tone(523,.12,'triangle',.12); tone(659,.12,'triangle',.12,.1); tone(784,.16,'triangle',.12,.2); break;
   }
 }
 document.addEventListener('click', e=>{ if(e.target.closest('button')) sfx('click'); });
 
-/* ================================================================
-   二、职业定义（9大职业）
-   ================================================================ */
+/* ============ 职业 ============ */
 const PROF = {
   planner:{ id:'planner', name:'主策划', icon:'👑', color:'#ffd700', skillName:'视察',
     skillDesc:'每晚查验一名玩家的阵营（好人/坏人）。白天拥有独裁权（决定最终淘汰谁）。', night:true, day:false },
@@ -362,23 +321,14 @@ function genAINames(k){ return shuffle(AI_NAMES).slice(0,k); }
 function hasNightSkill(p){ return NIGHT_ROLES.includes(p.roleId); }
 function hasDayOnceSkill(p){ return DAY_ONCE_ROLES.includes(p.roleId); }
 
-/* ================================================================
-   三、全局游戏状态
-   ================================================================ */
+/* ============ 全局状态 ============ */
 let game = freshGame();
 let menuMode = 'ai';
 let pendingResolve = null;
 let currentActionKey = null;
 let sheetCollapsed = false;
-
-/* 联机相关（PeerJS / WebRTC） */
-let peer = null;
-let hostConn = null;
-let conns = {};
-let isHost = false;
-let roomCode = null;
-let mySeatId = 0;
-let kickedFlag = false;
+let peer = null, hostConn = null, conns = {};
+let isHost = false, roomCode = null, mySeatId = 0, kickedFlag = false;
 let pendingRemote = {};
 
 function freshGame(){
@@ -394,9 +344,7 @@ function getLeader(){ return game.players.find(p=>p.alive && p.isLeader) || null
 function humanPlayer(){ return game.players.find(p=>p.id===game.humanId); }
 function occupiedCount(){ return game.players.filter(p=>p.controller!=='empty').length; }
 
-/* ================================================================
-   四、日志系统
-   ================================================================ */
+/* ============ 日志 ============ */
 function logMsg(vis, text, style='info'){
   game.log.push({vis, text, style, day:game.day});
   renderLog();
@@ -412,9 +360,7 @@ function renderLog(){
   box.scrollTop = box.scrollHeight;
 }
 
-/* ================================================================
-   五、身份分配
-   ================================================================ */
+/* ============ 身份分配 ============ */
 function assignRoles(){
   const others = shuffle(Object.keys(PROF).filter(r=>r!=='planner'));
   const roles = ['planner', ...others];
@@ -449,9 +395,7 @@ function startAI(n, humanName){
   runGame();
 }
 
-/* ================================================================
-   六、AI 逻辑
-   ================================================================ */
+/* ============ AI ============ */
 function aiBestSuspicion(p, list){
   let best=list[0], bs=-1;
   for(const x of list){ const s=(p.memory.suspicion[x.id]??0.5); if(s>bs){ bs=s; best=x; } }
@@ -551,9 +495,7 @@ function aiMaybeRespond(){
   setTimeout(()=>logPublic(`💬 ${ai.name}：${pick(msgs)}`,'chat'), 600+rand(1200));
 }
 
-/* ================================================================
-   七、夜晚结算：技能交互
-   ================================================================ */
+/* ============ 夜晚结算 ============ */
 function resolveNight(actions){
   const alive = alivePlayers();
   const disabled = new Set();
@@ -607,9 +549,7 @@ function resolveNight(actions){
   return results;
 }
 
-/* ================================================================
-   八、玩家输入桥接
-   ================================================================ */
+/* ============ 玩家输入桥接 ============ */
 async function getAction(p, opts){
   if(p.controller==='human') return await askHuman(opts);
   else if(p.controller==='ai'){ await delay(150); return aiAction(p, opts); }
@@ -698,9 +638,7 @@ function toggleSheet(){
   if(b) b.textContent = sheetCollapsed ? '▲ 展开操作面板' : '▼ 收起操作面板';
 }
 
-/* ================================================================
-   九、游戏主流程
-   ================================================================ */
+/* ============ 主流程 ============ */
 async function runGame(){
   await electionCeremony();
   if(checkWin()){ endGame(); return; }
@@ -920,9 +858,7 @@ function renderResult(){
   $('result-detail').innerHTML=html;
 }
 
-/* ================================================================
-   十、UI 渲染
-   ================================================================ */
+/* ============ UI 渲染 ============ */
 function phaseText(){
   const map={election:'🗳️ 选举',night:'🌙 夜晚',day:'☀️ 白天',voting:'🗳️ 投票',dictate:'👑 独裁',result:'🏁 结算'};
   return map[game.phase]||'';
@@ -940,7 +876,7 @@ function renderTopBar(){
   $('day-label').innerHTML='📅 第 <b>'+game.day+'</b> 天';
   $('alive-label').innerHTML='存活 <b>'+alivePlayers().length+'</b>/'+game.players.length;
   $('bad-label').innerHTML='坏人 <b>'+aliveBad().length+'</b>';
-  $('mode-label').innerHTML = game.mode==='ai' ? '🤖 AI对战' : ('🌐 '+ (game.code||''));
+  $('mode-label').innerHTML = (game.mode==='ai' ? '🤖 AI' : '🌐 '+ (game.code||'')) + ' · v5';
 }
 function renderPlayerList(){
   const box=$('player-list'); let html='';
@@ -984,16 +920,18 @@ function quitGame(){
   try{ if(hostConn) hostConn.close(); if(peer) peer.destroy(); }catch(e){}
   location.reload();
 }
+/* 关键修复：用内联样式控制布局，手机端 flex、桌面端 grid，任何 CSS 都压不过它 */
 function showScreen(name){
-  ['main','game','result'].forEach(s=>{
-    const el=$('screen-'+s);
-    if(el) el.classList.toggle('active', s===name);
-  });
+  const mobile = window.innerWidth <= 1024;
+  const disp = {
+    main:   (name==='main'   ? 'flex' : 'none'),
+    game:   (name==='game'   ? (mobile ? 'flex' : 'grid') : 'none'),
+    result: (name==='result' ? 'flex' : 'none'),
+  };
+  ['main','game','result'].forEach(s=>{ const el=$('screen-'+s); if(el) el.style.display = disp[s]; });
 }
 
-/* ================================================================
-   十一、联机模式：PeerJS（WebRTC 点对点）
-   ================================================================ */
+/* ============ 联机：PeerJS ============ */
 function genRoomCode(){
   const chars='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   let c='';
@@ -1010,10 +948,8 @@ function findConnSeat(conn){
   for(const [sid,c] of Object.entries(conns)){ if(c===conn) return +sid; }
   return null;
 }
-
-/* ---------- 房主 ---------- */
 function hostRoom(n, name){
-  if(typeof Peer === 'undefined'){ alert('PeerJS 加载失败，请确认页面在 HTTPS 环境且网络正常。'); return; }
+  if(typeof Peer === 'undefined'){ alert('PeerJS 加载失败，请确认 HTTPS 环境。'); return; }
   isHost=true; mySeatId=0;
   roomCode = genRoomCode();
   game = freshGame(); game.mode='online'; game.host=true; game.code=roomCode; game.roomSize=n;
@@ -1067,7 +1003,6 @@ function hostHandleData(conn, d){
     if(seat) logPublic(`💬 ${seat.name}：${d.text}`,'chat');
   }
 }
-/* 断开连接：未开局视为退出房间释放座位；开局中转为人机托管 */
 function handleDisconnect(conn){
   const s=findConnSeat(conn);
   if(s==null) return;
@@ -1088,7 +1023,6 @@ function handleDisconnect(conn){
   }
   renderAll(); broadcastState();
 }
-/* 房主：踢人（仅大厅） */
 function kickPlayer(seatId){
   if(!isHost || game.started) return;
   const seat=game.players[seatId];
@@ -1101,7 +1035,6 @@ function kickPlayer(seatId){
   seat.controller='empty'; seat.isAI=false; seat.name='等待加入'+(seatId+1)+'号';
   renderAll(); broadcastState();
 }
-/* 房主：添加/移除人机（仅大厅） */
 function addBot(seatId){
   if(!isHost || game.started) return;
   const seat=game.players[seatId];
@@ -1132,10 +1065,8 @@ function startOnlineGame(){
   renderAll(); broadcastState(); sfx('start');
   runGame();
 }
-
-/* ---------- 客户端 ---------- */
 function joinRoom(){
-  if(typeof Peer === 'undefined'){ alert('PeerJS 加载失败，请确认页面在 HTTPS 环境且网络正常。'); return; }
+  if(typeof Peer === 'undefined'){ alert('PeerJS 加载失败，请确认 HTTPS 环境。'); return; }
   const code = $('room-code').value.trim().toUpperCase();
   if(!code){ alert('请输入房间码'); return; }
   roomCode = code;
@@ -1157,7 +1088,7 @@ function joinRoom(){
   });
 }
 function clientHandleData(d){
-  if(d.type==='kicked'){                     // 被房主踢出 → 回到主菜单
+  if(d.type==='kicked'){
     kickedFlag=true;
     alert('你已被房主移出房间。');
     try{ hostConn&&hostConn.close(); }catch(e){}
@@ -1178,8 +1109,6 @@ function clientHandleData(d){
     if(d.state.winner && !prevWinner) endGame();
   }
 }
-
-/* ---------- 状态打包/广播 ---------- */
 function packState(){
   const snap = JSON.parse(JSON.stringify(game));
   snap.pendingFor = game.pendingFor||null;
@@ -1242,7 +1171,7 @@ function renderLobby(){
       ${seatList}
       ${ready?`<button class="big-btn" onclick="startOnlineGame()" style="width:100%">▶ 开始游戏</button>`
             :`<div class="waiting">等待玩家加入，或点击「＋人机」补位…</div>`}
-      <div class="hint">提示：把网址发给朋友输入房间码 ${roomCode} 加入；<br>断开连接视为退出房间；房主可踢人/加人机。</div>`;
+      <div class="hint">提示：把网址发给朋友输入房间码 ${roomCode} 加入；断开连接视为退出房间；房主可踢人/加人机。</div>`;
   } else {
     area.innerHTML = `<div class="action-title">🏠 房间 ${roomCode}</div>
       <div class="waiting">你已加入座位 ${game.humanId+1}，等待房主开始游戏…</div>`;
@@ -1250,9 +1179,7 @@ function renderLobby(){
   setSheet(true);
 }
 
-/* ================================================================
-   十二、主菜单与背景动画初始化
-   ================================================================ */
+/* ============ 主菜单 & 背景 ============ */
 function selectMode(m){
   menuMode=m;
   $('btn-ai').classList.toggle('active', m==='ai');
@@ -1291,6 +1218,8 @@ function buildBackground(){
 $('chat-send').onclick=()=>sendChat($('chat-input').value);
 $('chat-input').onkeydown=e=>{ if(e.key==='Enter') sendChat($('chat-input').value); };
 window.addEventListener('load', ()=>{ showScreen('main'); buildRolesHelp(); buildBackground(); });
+/* 横竖屏切换时重新套用正确布局 */
+window.addEventListener('resize', ()=>{ if($('screen-game') && $('screen-game').style.display!=='none') showScreen('game'); });
 </script>
 </body>
 </html>
