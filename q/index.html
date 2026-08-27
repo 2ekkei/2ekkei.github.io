@@ -43,7 +43,7 @@ button{ touch-action:manipulation; user-select:none; -webkit-user-select:none; }
   to  { transform:translateY(115vh) rotate(360deg); opacity:0; }
 }
 
-/* ---------- 屏幕显隐（用 class 控制，避免内联样式压过媒体查询） ---------- */
+/* ---------- 屏幕显隐（class 控制，避免内联样式压过媒体查询） ---------- */
 .screen{ display:none !important; }
 .screen.active{ display:flex !important; }
 #screen-game.active{ display:grid !important; }
@@ -61,7 +61,7 @@ button{ touch-action:manipulation; user-select:none; -webkit-user-select:none; }
 .subtitle{ color:#bbb; font-size:13px; margin:4px 0 18px; }
 .logo{ font-size:30px; animation:pulse 2s infinite; }
 @keyframes pulse{ 0%,100%{transform:scale(1)} 50%{transform:scale(1.15)} }
-.mode-select{ display:flex; gap:10px; justify-content:center; margin:10px 0; }
+.mode-select{ display:flex; gap:10px; justify-content:center; margin:10px 0; flex-wrap:wrap; }
 .mode-btn{
   padding:10px 18px; border-radius:30px; border:1px solid var(--line); background:rgba(255,255,255,.06);
   color:#eee; font-size:14px; cursor:pointer; transition:.2s; }
@@ -100,9 +100,9 @@ input[type=range]{ width:80%; accent-color:var(--pink); }
   grid-column:1/-1; display:flex; align-items:center; gap:14px; padding:0 12px; flex-wrap:wrap;
   background:var(--card); border:1px solid var(--line); border-radius:12px; backdrop-filter:blur(4px);
 }
-.tb{ font-size:14px; padding:4px 10px; border-radius:16px; background:rgba(0,0,0,.3); white-space:nowrap; }
+.tb{ font-size:14px; padding:4px 10px; border-radius:16px; background:rgba(0,0,0,.3); white-space:nowrap; flex-shrink:0; }
 .tb b{ color:var(--gold); }
-.quit{ margin-left:auto; padding:6px 14px; border-radius:20px; border:1px solid var(--bad); background:transparent; color:#ff8fa3; cursor:pointer; }
+.quit{ margin-left:auto; padding:6px 14px; border-radius:20px; border:1px solid var(--bad); background:transparent; color:#ff8fa3; cursor:pointer; flex-shrink:0; }
 #left{ background:var(--card); border:1px solid var(--line); border-radius:12px; padding:10px; overflow-y:auto; }
 #left h3{ font-size:13px; color:var(--cyan); margin-bottom:8px; }
 .player-card{
@@ -161,6 +161,13 @@ input[type=range]{ width:80%; accent-color:var(--pink); }
 .chat-row{ display:flex; gap:6px; margin-left:auto; flex:1; min-width:200px; }
 #chat-input{ flex:1; }
 
+/* 大厅座位管理 */
+.lobby-row{ display:flex; align-items:center; justify-content:space-between; gap:8px;
+  padding:8px 10px; border:1px solid var(--line); border-radius:10px; margin:5px 0; background:rgba(0,0,0,.25); font-size:13px; }
+.lobby-row span{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.lobby-btn{ padding:6px 12px; border-radius:14px; border:1px solid var(--cyan); background:rgba(0,229,255,.1); color:var(--cyan); font-size:12px; cursor:pointer; flex-shrink:0; }
+.lobby-btn.danger{ border-color:var(--bad); background:rgba(255,77,109,.12); color:#ff8fa3; }
+
 /* 操作面板折叠按钮（仅手机端显示） */
 .sheet-toggle{ display:none; }
 
@@ -172,22 +179,23 @@ input[type=range]{ width:80%; accent-color:var(--pink); }
 #result-sub{ color:#bbb; font-size:15px; }
 
 /* ============================================================
-   移动端（≤860px）：纵向单列，操作面板在日志正下方（可折叠）
+   移动端（≤860px）：纵向单列 + 操作面板可折叠
    ============================================================ */
 @media (max-width:860px){
-  #screen-game.active{ display:flex !important; flex-direction:column; height:100vh; height:100dvh; }
-  /* 1) 顶部状态栏：紧凑 */
-  #topbar{ order:0; flex-shrink:0; border-radius:0; padding:6px 8px; gap:6px; font-size:12px; }
-  .tb{ font-size:12px; padding:3px 7px; }
-  .quit{ padding:4px 10px; font-size:12px; }
-  /* 2) 玩家列表：顶部横向滑动 */
+  #screen-game.active{ display:flex !important; flex-direction:column; height:100vh; height:100dvh; padding:0; gap:0; }
+  /* 顶部状态栏：自动换行、防溢出，绝不横向飞出 */
+  #topbar{ order:0; flex-shrink:0; width:100%; max-width:100vw; border-radius:0; padding:5px 8px; gap:4px;
+    flex-wrap:wrap; overflow:hidden; font-size:11px; }
+  .tb{ flex:0 0 auto; font-size:11px; padding:3px 7px; }
+  .quit{ margin-left:auto; padding:4px 10px; font-size:11px; }
+  /* 玩家列表：顶部横向滑动 */
   #left{ order:1; flex-shrink:0; border-radius:0; max-height:128px; padding:8px; border-left:0; border-right:0; }
   #player-list{ display:flex; gap:8px; overflow-x:auto; padding-bottom:4px; -webkit-overflow-scrolling:touch; }
   .player-card{ min-width:126px; margin-bottom:0; flex-shrink:0; }
-  /* 3) 日志区：占据剩余高度 */
+  /* 日志区：占据剩余高度 */
   #middle{ order:2; flex:1; min-height:0; border-radius:0; border-left:0; border-right:0; }
   #log{ font-size:13px; }
-  /* 4) 操作面板：日志正下方，内部滚动，可折叠 */
+  /* 操作面板：日志正下方，内部滚动，可折叠 */
   #right{ order:3; flex-shrink:0; border-radius:0; background:var(--card); border-top:1px solid var(--line);
     display:flex; flex-direction:column; gap:0; }
   #right.show{ border-top:2px solid var(--pink); }
@@ -195,7 +203,7 @@ input[type=range]{ width:80%; accent-color:var(--pink); }
     border:none; border-bottom:1px solid var(--line); color:var(--cyan); font-size:12px; padding:5px; cursor:pointer; }
   #action-area{ flex:1; max-height:38vh; border-radius:0; border:none; padding:8px 12px; }
   #right.collapsed #action-area{ display:none; }
-  /* 5) 底部聊天栏：单行 + 快捷按钮横滑 */
+  /* 底部聊天栏：单行 + 快捷按钮横滑 */
   #bottom{ order:4; flex-shrink:0; border-radius:0; flex-wrap:nowrap; padding:6px 8px;
     padding-bottom:calc(6px + env(safe-area-inset-bottom,0px)); }
   #quick-btns{ flex:0 0 auto; flex-wrap:nowrap; overflow-x:auto; -webkit-overflow-scrolling:touch; }
@@ -204,6 +212,7 @@ input[type=range]{ width:80%; accent-color:var(--pink); }
   /* 触控放大 */
   .target-btn{ padding:12px 14px; font-size:15px; }
   .skip-btn{ padding:10px; font-size:14px; }
+  .lobby-btn{ padding:8px 14px; font-size:13px; }
   .result-table{ font-size:12px; }
   .result-table th,.result-table td{ padding:6px 8px; }
 }
@@ -238,7 +247,7 @@ input[type=range]{ width:80%; accent-color:var(--pink); }
         <button class="mode-btn" onclick="joinRoom()">🔑 加入房间</button>
       </div>
       <div class="online-status" id="online-status">联机（PeerJS/WebRTC）：把本页发布到 GitHub Pages 等 HTTPS 地址后，<br>
-      房主点「创建房间」生成房间码，朋友在任意设备打开同一网址输入房间码即可加入。<br>无需自建服务器。</div>
+      房主点「创建房间」生成房间码，朋友在任意设备打开同一网址输入房间码即可加入。<br>无需自建服务器。断开连接视为退出房间。</div>
     </div>
   </div>
   <div class="roles-help" id="roles-help"></div>
@@ -282,7 +291,7 @@ input[type=range]{ width:80%; accent-color:var(--pink); }
 
 <script>
 /* ================================================================
-   一、基础工具 & 音频（Web Audio 生成音效）
+   一、基础工具 & 音频
    ================================================================ */
 function $(id){ return document.getElementById(id); }
 function rand(n){ return Math.floor(Math.random()*n); }
@@ -360,14 +369,16 @@ let game = freshGame();
 let menuMode = 'ai';
 let pendingResolve = null;
 let currentActionKey = null;
-let sheetCollapsed = false;      // 手机端操作面板是否折叠
+let sheetCollapsed = false;
 
+/* 联机相关（PeerJS / WebRTC） */
 let peer = null;
 let hostConn = null;
 let conns = {};
 let isHost = false;
 let roomCode = null;
 let mySeatId = 0;
+let kickedFlag = false;
 let pendingRemote = {};
 
 function freshGame(){
@@ -679,9 +690,7 @@ function clearActionUI(){
   const m=map[game.phase]; if(m) area.innerHTML=`<div class="action-title">${m[0]}</div><div class="waiting">${m[1]}</div>`;
   setSheet(false);
 }
-/* 操作面板高亮：轮到你时标出边框 */
 function setSheet(show){ const r=$('right'); if(r) r.classList.toggle('show', !!show); }
-/* 手机端折叠/展开 */
 function toggleSheet(){
   sheetCollapsed = !sheetCollapsed;
   $('right').classList.toggle('collapsed', sheetCollapsed);
@@ -930,8 +939,8 @@ function renderTopBar(){
   $('phase-label').innerHTML='状态：<b>'+phaseText()+'</b>';
   $('day-label').innerHTML='📅 第 <b>'+game.day+'</b> 天';
   $('alive-label').innerHTML='存活 <b>'+alivePlayers().length+'</b>/'+game.players.length;
-  $('bad-label').innerHTML='坏人剩余 <b>'+aliveBad().length+'</b>';
-  $('mode-label').innerHTML = game.mode==='ai' ? '🤖 AI对战' : ('🌐 联机 '+(game.code||''));
+  $('bad-label').innerHTML='坏人 <b>'+aliveBad().length+'</b>';
+  $('mode-label').innerHTML = game.mode==='ai' ? '🤖 AI对战' : ('🌐 '+ (game.code||''));
 }
 function renderPlayerList(){
   const box=$('player-list'); let html='';
@@ -946,8 +955,9 @@ function renderPlayerList(){
     const roleTxt = known? `${r.icon}${r.name}`:'❓';
     const facTxt  = known? (p.faction==='good'?'😇好人':'😈坏人'):'❓';
     const leaderBadge = (p.isLeader&&p.alive)?'👑':'';
+    const botTag = (p.controller==='ai' && game.mode==='online')?'🤖':'';
     html+=`<div class="player-card ${p.alive?'':'dead'} ${isMe?'me':''} ${p.isLeader&&p.alive?'leader':''}">
-      <div class="p-head"><span class="p-name">${p.name}${leaderBadge}${isMe?'（你）':''}</span><span>${p.alive?'':'💀'}</span></div>
+      <div class="p-head"><span class="p-name">${botTag}${p.name}${leaderBadge}${isMe?'（你）':''}</span><span>${p.alive?'':'💀'}</span></div>
       <div class="p-meta"><span class="p-role">${roleTxt}</span><span class="p-fac ${p.faction==='bad'&&known?'bad':''}">${isMe?'我的阵营：'+facTxt:facTxt}</span></div>
     </div>`;
   });
@@ -982,7 +992,7 @@ function showScreen(name){
 }
 
 /* ================================================================
-   十一、联机模式：PeerJS（WebRTC 点对点，跨设备跨网络）
+   十一、联机模式：PeerJS（WebRTC 点对点）
    ================================================================ */
 function genRoomCode(){
   const chars='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -991,6 +1001,15 @@ function genRoomCode(){
   return c;
 }
 function peerIdFor(code){ return 'rw-'+code; }
+function genBotName(){
+  const used = new Set(game.players.map(p=>p.name));
+  for(const n of AI_NAMES){ if(!used.has(n)) return n; }
+  return '人机'+(game.players.length+1);
+}
+function findConnSeat(conn){
+  for(const [sid,c] of Object.entries(conns)){ if(c===conn) return +sid; }
+  return null;
+}
 
 /* ---------- 房主 ---------- */
 function hostRoom(n, name){
@@ -1009,7 +1028,7 @@ function hostRoom(n, name){
   });
   peer.on('connection', conn=>{
     conn.on('data', d=>hostHandleData(conn,d));
-    conn.on('close', ()=>{ const s=findConnSeat(conn); if(s!=null) logPublic(`${game.players[s].name} 断开了连接。`,'warn'); });
+    conn.on('close', ()=>handleDisconnect(conn));
     conn.on('error', ()=>{});
   });
   peer.on('error', err=>{
@@ -1019,17 +1038,13 @@ function hostRoom(n, name){
       peer.destroy();
       peer = new Peer(peerIdFor(roomCode), {debug:1});
       peer.on('open', ()=>{ logPublic(`🏠 房间创建成功！房间码：${roomCode}`,'system'); renderAll(); });
-      peer.on('connection', conn=>{ conn.on('data', d=>hostHandleData(conn,d)); });
+      peer.on('connection', conn=>{ conn.on('data', d=>hostHandleData(conn,d)); conn.on('close', ()=>handleDisconnect(conn)); });
       peer.on('error', ()=>{});
     } else if(err.type==='network'||err.type==='server-error'){
       logPublic('⚠️ 无法连接 PeerJS 信令服务器，请检查网络后重试。','warn');
     }
   });
   showScreen('game'); renderAll();
-}
-function findConnSeat(conn){
-  for(const [sid,c] of Object.entries(conns)){ if(c===conn) return +sid; }
-  return null;
 }
 function hostHandleData(conn, d){
   if(d.type==='join'){
@@ -1052,10 +1067,64 @@ function hostHandleData(conn, d){
     if(seat) logPublic(`💬 ${seat.name}：${d.text}`,'chat');
   }
 }
+/* 断开连接：未开局视为退出房间释放座位；开局中转为人机托管 */
+function handleDisconnect(conn){
+  const s=findConnSeat(conn);
+  if(s==null) return;
+  delete conns[s];
+  const seat=game.players[s];
+  if(!seat) return;
+  const oldName=seat.name;
+  if(!game.started){
+    seat.controller='empty'; seat.isAI=false; seat.name='等待加入'+(s+1)+'号';
+    logPublic(`${oldName} 断开连接，已退出房间。`,'warn');
+  } else {
+    seat.controller='ai'; seat.isAI=true; seat.name=oldName+'（已离开）';
+    logPublic(`📡 ${oldName} 断开连接，已转为人机托管，游戏继续。`,'warn');
+    if(pendingRemote[s]){
+      const opts=pendingRemote[s].opts;
+      pendingRemote[s].resolve(opts? aiAction(seat, opts):null);
+    }
+  }
+  renderAll(); broadcastState();
+}
+/* 房主：踢人（仅大厅） */
+function kickPlayer(seatId){
+  if(!isHost || game.started) return;
+  const seat=game.players[seatId];
+  if(!seat || seat.controller!=='remote') return;
+  const conn=conns[seatId];
+  logPublic(`${seat.name} 已被房主移出房间。`,'warn');
+  try{ conn.send({type:'kicked'}); }catch(e){}
+  try{ conn.close(); }catch(e){}
+  delete conns[seatId];
+  seat.controller='empty'; seat.isAI=false; seat.name='等待加入'+(seatId+1)+'号';
+  renderAll(); broadcastState();
+}
+/* 房主：添加/移除人机（仅大厅） */
+function addBot(seatId){
+  if(!isHost || game.started) return;
+  const seat=game.players[seatId];
+  if(!seat || seat.controller!=='empty') return;
+  seat.controller='ai'; seat.isAI=true; seat.name=genBotName();
+  logPublic(`🤖 ${seat.name}（人机）已加入房间。`,'system');
+  renderAll(); broadcastState();
+}
+function removeBot(seatId){
+  if(!isHost || game.started) return;
+  const seat=game.players[seatId];
+  if(!seat || seat.controller!=='ai') return;
+  logPublic(`🤖 ${seat.name}（人机）已从房间移除。`,'system');
+  seat.controller='empty'; seat.isAI=false; seat.name='等待加入'+(seatId+1)+'号';
+  renderAll(); broadcastState();
+}
 function startOnlineGame(){
   if(!isHost) return;
   if(occupiedCount()<game.roomSize){ alert('人数未满，无法开始'); return; }
-  game.players.forEach(p=>{ p.controller = (p.id===0)?'human':'remote'; });
+  game.players.forEach(p=>{
+    if(p.id===0) p.controller='human';
+    else if(p.controller==='empty') p.controller='ai';
+  });
   game.humanId=0; game.started=true;
   assignRoles(); assignFactions(); ensurePlannerGood();
   showScreen('game');
@@ -1078,7 +1147,7 @@ function joinRoom(){
     hostConn = peer.connect(peerIdFor(code), {reliable:true});
     hostConn.on('open', ()=>{ hostConn.send({type:'join', name}); });
     hostConn.on('data', d=>clientHandleData(d));
-    hostConn.on('close', ()=>{ if(!game.winner){ $('action-area').innerHTML=`<div class="action-title">⚠️ 与房主断开</div><div class="waiting">房主可能关闭了页面，请返回重进。</div>`; setSheet(true); } });
+    hostConn.on('close', ()=>{ if(kickedFlag) return; if(!game.winner){ $('action-area').innerHTML=`<div class="action-title">⚠️ 与房主断开</div><div class="waiting">房主关闭了页面或你已退出房间，请返回重进。</div>`; setSheet(true); } });
     hostConn.on('error', err=>{ $('online-status').textContent='连接错误：'+err.type; });
   });
   peer.on('error', err=>{
@@ -1088,6 +1157,13 @@ function joinRoom(){
   });
 }
 function clientHandleData(d){
+  if(d.type==='kicked'){                     // 被房主踢出 → 回到主菜单
+    kickedFlag=true;
+    alert('你已被房主移出房间。');
+    try{ hostConn&&hostConn.close(); }catch(e){}
+    location.reload();
+    return;
+  }
   if(d.type==='joinResult'){
     if(!d.ok){ $('online-status').textContent='❌ 加入失败：'+d.msg; return; }
     game.humanId=d.seatId; mySeatId=d.seatId; game.roomSize=d.size;
@@ -1149,11 +1225,24 @@ function renderLobby(){
   const area=$('action-area');
   if(isHost){
     const ready = occupiedCount()===game.roomSize;
+    let seatList='';
+    game.players.forEach(p=>{
+      if(p.controller==='human'){
+        seatList += `<div class="lobby-row"><span>${p.id+1}号 · ${p.name}（我·房主）</span></div>`;
+      } else if(p.controller==='empty'){
+        seatList += `<div class="lobby-row"><span>${p.id+1}号 · ${p.name}</span><button class="lobby-btn" onclick="addBot(${p.id})">＋人机</button></div>`;
+      } else if(p.controller==='ai'){
+        seatList += `<div class="lobby-row"><span>${p.id+1}号 · 🤖${p.name}</span><button class="lobby-btn danger" onclick="removeBot(${p.id})">移除</button></div>`;
+      } else if(p.controller==='remote'){
+        seatList += `<div class="lobby-row"><span>${p.id+1}号 · ${p.name}</span><button class="lobby-btn danger" onclick="kickPlayer(${p.id})">踢出</button></div>`;
+      }
+    });
     area.innerHTML = `<div class="action-title">🏠 房间 ${roomCode}</div>
       <div class="waiting">已加入 ${occupiedCount()}/${game.roomSize}</div>
+      ${seatList}
       ${ready?`<button class="big-btn" onclick="startOnlineGame()" style="width:100%">▶ 开始游戏</button>`
-            :`<div class="waiting">等待其他玩家加入…<br>把当前网址发给朋友，输入房间码 ${roomCode} 即可加入</div>`}
-      <div class="hint">提示：房主标签页需保持打开；企业/校园网防火墙可能无法直连。</div>`;
+            :`<div class="waiting">等待玩家加入，或点击「＋人机」补位…</div>`}
+      <div class="hint">提示：把网址发给朋友输入房间码 ${roomCode} 加入；<br>断开连接视为退出房间；房主可踢人/加人机。</div>`;
   } else {
     area.innerHTML = `<div class="action-title">🏠 房间 ${roomCode}</div>
       <div class="waiting">你已加入座位 ${game.humanId+1}，等待房主开始游戏…</div>`;
