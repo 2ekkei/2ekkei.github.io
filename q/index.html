@@ -1,1 +1,1207 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>♪ 节奏狼人杀 · 音游企划社交推理</title>
+<!-- PeerJS CDN：WebRTC 点对点联机（无需自建服务器） -->
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<style>
+/* ============================================================
+   全局：霓虹音游主题
+   ============================================================ */
+*{ margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+:root{
+  --purple:#8e2de2; --pink:#ff2e97; --blue:#00c6ff;
+  --bg0:#0f0524; --card:rgba(20,8,45,.72);
+  --line:rgba(255,255,255,.16);
+  --good:#36f5a1; --bad:#ff4d6d; --gold:#ffd700; --cyan:#00e5ff;
+}
+html,body{ height:100%; }
+body{
+  font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;
+  color:#eee; overflow:hidden; background:var(--bg0); touch-action:manipulation;
+}
+button{ touch-action:manipulation; user-select:none; -webkit-user-select:none; }
+#bg-anim{
+  position:fixed; inset:0; z-index:-2;
+  background:linear-gradient(125deg,#1a0a3a 0%,#3b0a5a 25%,#6a1b9a 45%,#b3247a 65%,#1b2b6d 100%);
+  background-size:300% 300%; animation:gradientShift 16s ease-in-out infinite;
+}
+@keyframes gradientShift{
+  0%{background-position:0% 50%} 50%{background-position:100% 50%} 100%{background-position:0% 50%}
+}
+#eq{ position:fixed; left:0; right:0; bottom:0; height:46px; z-index:-1;
+  display:flex; align-items:flex-end; justify-content:center; gap:4px; opacity:.5; pointer-events:none; }
+#eq i{ width:6px; background:linear-gradient(180deg,var(--pink),var(--blue)); border-radius:3px;
+  animation:beat .9s ease-in-out infinite; }
+@keyframes beat{ 0%,100%{height:6px} 50%{height:40px} }
+.note{ position:fixed; top:-12vh; z-index:-1; color:rgba(255,255,255,.6); pointer-events:none;
+  animation:noteFall linear infinite; text-shadow:0 0 12px currentColor; }
+@keyframes noteFall{
+  from{ transform:translateY(-12vh) rotate(0deg); opacity:.85; }
+  to  { transform:translateY(115vh) rotate(360deg); opacity:0; }
+}
 
+/* ---------- 屏幕显隐（用 class 控制，避免内联样式压过媒体查询） ---------- */
+.screen{ display:none !important; }
+.screen.active{ display:flex !important; }
+#screen-game.active{ display:grid !important; }
+@media (max-width:860px){ #screen-game.active{ display:flex !important; } }
+
+#screen-main{ width:100%; height:100vh; height:100dvh; flex-direction:column; align-items:center; justify-content:center; gap:14px; padding:16px; overflow:auto; }
+#screen-result{ width:100%; height:100vh; height:100dvh; flex-direction:column; align-items:center; justify-content:center; gap:14px; padding:16px; overflow:auto; }
+.main-card{
+  background:var(--card); border:1px solid var(--line); border-radius:20px; padding:28px 34px;
+  box-shadow:0 0 24px rgba(255,46,151,.25), 0 0 60px rgba(0,198,255,.15) inset;
+  backdrop-filter:blur(6px); max-width:520px; width:100%; text-align:center;
+}
+.title{ font-size:34px; letter-spacing:2px; background:linear-gradient(90deg,#ff2e97,#ffd700,#00e5ff);
+  -webkit-background-clip:text; background-clip:text; color:transparent; filter:drop-shadow(0 0 12px rgba(255,46,151,.6)); }
+.subtitle{ color:#bbb; font-size:13px; margin:4px 0 18px; }
+.logo{ font-size:30px; animation:pulse 2s infinite; }
+@keyframes pulse{ 0%,100%{transform:scale(1)} 50%{transform:scale(1.15)} }
+.mode-select{ display:flex; gap:10px; justify-content:center; margin:10px 0; }
+.mode-btn{
+  padding:10px 18px; border-radius:30px; border:1px solid var(--line); background:rgba(255,255,255,.06);
+  color:#eee; font-size:14px; cursor:pointer; transition:.2s; }
+.mode-btn:hover{ box-shadow:0 0 12px var(--cyan); }
+.mode-btn:active{ transform:scale(.96); }
+.mode-btn.active{ background:linear-gradient(90deg,var(--purple),var(--pink)); border-color:transparent; box-shadow:0 0 16px var(--pink); }
+.player-count{ margin:12px 0; font-size:15px; }
+input[type=range]{ width:80%; accent-color:var(--pink); }
+.name-input{ margin:8px 0; }
+.name-input input,#room-code,#chat-input{
+  background:rgba(0,0,0,.35); border:1px solid var(--line); color:#eee; border-radius:8px; padding:8px 12px; font-size:14px; outline:none; }
+.name-input input:focus,#room-code:focus,#chat-input:focus{ border-color:var(--cyan); box-shadow:0 0 10px rgba(0,229,255,.4); }
+.big-btn{
+  margin-top:12px; padding:13px 40px; border-radius:30px; border:none; font-size:17px; font-weight:700; cursor:pointer;
+  background:linear-gradient(90deg,#ff2e97,#8e2de2); color:#fff; box-shadow:0 0 20px rgba(255,46,151,.6);
+  transition:.2s; }
+.big-btn:hover{ transform:translateY(-2px); box-shadow:0 0 30px rgba(255,46,151,.9); }
+.big-btn:disabled{ opacity:.5; cursor:not-allowed; transform:none; }
+.online-box{ margin-top:8px; }
+.online-row{ display:flex; gap:8px; justify-content:center; align-items:center; }
+.online-status{ font-size:12px; color:#9ad; margin-top:8px; line-height:1.6; }
+.roles-help{ max-width:760px; display:flex; flex-wrap:wrap; gap:8px; justify-content:center; }
+.role-chip{
+  background:var(--card); border:1px solid var(--line); border-radius:12px; padding:8px 12px; font-size:12px;
+  display:flex; align-items:center; gap:6px; box-shadow:0 0 8px rgba(0,198,255,.15); }
+.role-chip b{ font-size:13px; }
+
+/* ============================================================
+   游戏界面（桌面：三栏网格）
+   ============================================================ */
+#screen-game{
+  width:100%; height:100vh; height:100dvh; padding:8px; gap:8px;
+  grid-template-rows:54px 1fr 66px; grid-template-columns:215px 1fr 255px;
+}
+#topbar{
+  grid-column:1/-1; display:flex; align-items:center; gap:14px; padding:0 12px; flex-wrap:wrap;
+  background:var(--card); border:1px solid var(--line); border-radius:12px; backdrop-filter:blur(4px);
+}
+.tb{ font-size:14px; padding:4px 10px; border-radius:16px; background:rgba(0,0,0,.3); white-space:nowrap; }
+.tb b{ color:var(--gold); }
+.quit{ margin-left:auto; padding:6px 14px; border-radius:20px; border:1px solid var(--bad); background:transparent; color:#ff8fa3; cursor:pointer; }
+#left{ background:var(--card); border:1px solid var(--line); border-radius:12px; padding:10px; overflow-y:auto; }
+#left h3{ font-size:13px; color:var(--cyan); margin-bottom:8px; }
+.player-card{
+  border:1px solid var(--line); border-radius:10px; padding:8px 10px; margin-bottom:7px; cursor:default;
+  background:rgba(0,0,0,.25); transition:.2s; }
+.player-card.dead{ opacity:.45; filter:grayscale(.6); }
+.player-card.me{ border-color:var(--gold); box-shadow:0 0 12px rgba(255,215,0,.5); }
+.player-card.leader{ border-color:var(--gold); }
+.p-head{ display:flex; justify-content:space-between; font-size:14px; }
+.p-name{ font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.p-meta{ display:flex; justify-content:space-between; font-size:12px; color:#cbb; margin-top:3px; }
+.p-fac.bad{ color:var(--bad); } .p-fac.good{ color:var(--good); }
+#middle{ background:var(--card); border:1px solid var(--line); border-radius:12px; padding:10px; overflow:hidden; display:flex; flex-direction:column; }
+#log{ flex:1; overflow-y:auto; font-size:13px; line-height:1.65; padding-right:6px; -webkit-overflow-scrolling:touch; }
+#log::-webkit-scrollbar{ width:6px; } #log::-webkit-scrollbar-thumb{ background:var(--pink); border-radius:3px; }
+.log-line{ padding:3px 8px; border-radius:6px; margin:2px 0; animation:slideIn .3s; word-break:break-word; }
+@keyframes slideIn{ from{opacity:0; transform:translateX(10px)} to{opacity:1; transform:none} }
+.log-line.system{ color:#9cf; }
+.log-line.night{ color:#b39ddb; background:rgba(90,30,150,.18); }
+.log-line.day{ color:#ffe082; background:rgba(255,180,0,.12); }
+.log-line.vote{ color:#80d8ff; }
+.log-line.dead{ color:#ff8fa3; font-weight:600; }
+.log-line.leader{ color:var(--gold); font-weight:700; }
+.log-line.warn{ color:#ffb74d; }
+.log-line.fake{ color:#ff7043; font-style:italic; }
+.log-line.bug{ color:#a5d6a7; }
+.log-line.chat{ color:#c7f9cc; }
+.log-line.result{ color:#b3e5fc; background:rgba(0,150,200,.15); }
+.log-line.private{ color:#ffd54f; }
+#right{ display:flex; flex-direction:column; gap:8px; overflow:hidden; }
+#action-area{
+  flex:1; background:var(--card); border:1px solid var(--line); border-radius:12px; padding:12px; overflow-y:auto;
+  -webkit-overflow-scrolling:touch;
+}
+.action-title{ font-size:15px; font-weight:700; color:var(--pink); margin-bottom:8px; text-shadow:0 0 8px rgba(255,46,151,.6); }
+.skill-card{ border:1px dashed; border-radius:10px; padding:8px; font-size:12px; margin-bottom:8px; background:rgba(0,0,0,.25); }
+.skill-icon{ font-size:22px; margin-right:6px; }
+.target-list{ display:flex; flex-direction:column; gap:6px; margin:6px 0; }
+.target-btn{
+  padding:9px 12px; border-radius:10px; border:1px solid var(--line); background:rgba(0,0,0,.3); color:#eee;
+  font-size:13px; cursor:pointer; text-align:left; transition:.15s; }
+.target-btn:hover{ border-color:var(--cyan); box-shadow:0 0 10px rgba(0,229,255,.5); transform:translateX(3px); }
+.target-btn:active{ transform:scale(.97); border-color:var(--pink); }
+.target-btn.ok{ border-color:var(--good); color:var(--good); }
+.skip-btn{ margin-top:8px; padding:7px; width:100%; border-radius:10px; border:1px dashed #666; background:transparent; color:#aaa; cursor:pointer; }
+.waiting{ color:#9ad; font-size:13px; margin-top:8px; }
+.hint{ color:#777; font-size:11px; margin-top:10px; line-height:1.6; }
+#bottom{
+  grid-column:1/-1; display:flex; align-items:center; gap:8px; padding:8px 10px; flex-wrap:wrap;
+  background:var(--card); border:1px solid var(--line); border-radius:12px;
+}
+#quick-btns{ display:flex; gap:6px; flex-wrap:wrap; }
+.quick-btn{ padding:6px 12px; border-radius:20px; border:1px solid var(--line); background:rgba(0,0,0,.3); color:#eae; font-size:12px; cursor:pointer; }
+.quick-btn:hover{ border-color:var(--pink); }
+.quick-btn:active{ transform:scale(.95); }
+.chat-row{ display:flex; gap:6px; margin-left:auto; flex:1; min-width:200px; }
+#chat-input{ flex:1; }
+
+/* 操作面板折叠按钮（仅手机端显示） */
+.sheet-toggle{ display:none; }
+
+/* 结算 */
+.result-table{ border-collapse:collapse; width:100%; max-width:520px; font-size:14px; }
+.result-table th,.result-table td{ border:1px solid var(--line); padding:8px 12px; text-align:center; }
+.result-table th{ background:rgba(255,46,151,.2); }
+#result-title{ font-size:30px; color:var(--gold); text-shadow:0 0 18px rgba(255,215,0,.6); }
+#result-sub{ color:#bbb; font-size:15px; }
+
+/* ============================================================
+   移动端（≤860px）：纵向单列，操作面板在日志正下方（可折叠）
+   ============================================================ */
+@media (max-width:860px){
+  #screen-game.active{ display:flex !important; flex-direction:column; height:100vh; height:100dvh; }
+  /* 1) 顶部状态栏：紧凑 */
+  #topbar{ order:0; flex-shrink:0; border-radius:0; padding:6px 8px; gap:6px; font-size:12px; }
+  .tb{ font-size:12px; padding:3px 7px; }
+  .quit{ padding:4px 10px; font-size:12px; }
+  /* 2) 玩家列表：顶部横向滑动 */
+  #left{ order:1; flex-shrink:0; border-radius:0; max-height:128px; padding:8px; border-left:0; border-right:0; }
+  #player-list{ display:flex; gap:8px; overflow-x:auto; padding-bottom:4px; -webkit-overflow-scrolling:touch; }
+  .player-card{ min-width:126px; margin-bottom:0; flex-shrink:0; }
+  /* 3) 日志区：占据剩余高度 */
+  #middle{ order:2; flex:1; min-height:0; border-radius:0; border-left:0; border-right:0; }
+  #log{ font-size:13px; }
+  /* 4) 操作面板：日志正下方，内部滚动，可折叠 */
+  #right{ order:3; flex-shrink:0; border-radius:0; background:var(--card); border-top:1px solid var(--line);
+    display:flex; flex-direction:column; gap:0; }
+  #right.show{ border-top:2px solid var(--pink); }
+  .sheet-toggle{ display:block; width:100%; text-align:center; background:rgba(255,255,255,.06);
+    border:none; border-bottom:1px solid var(--line); color:var(--cyan); font-size:12px; padding:5px; cursor:pointer; }
+  #action-area{ flex:1; max-height:38vh; border-radius:0; border:none; padding:8px 12px; }
+  #right.collapsed #action-area{ display:none; }
+  /* 5) 底部聊天栏：单行 + 快捷按钮横滑 */
+  #bottom{ order:4; flex-shrink:0; border-radius:0; flex-wrap:nowrap; padding:6px 8px;
+    padding-bottom:calc(6px + env(safe-area-inset-bottom,0px)); }
+  #quick-btns{ flex:0 0 auto; flex-wrap:nowrap; overflow-x:auto; -webkit-overflow-scrolling:touch; }
+  .quick-btn{ flex-shrink:0; }
+  .chat-row{ margin-left:6px; min-width:120px; }
+  /* 触控放大 */
+  .target-btn{ padding:12px 14px; font-size:15px; }
+  .skip-btn{ padding:10px; font-size:14px; }
+  .result-table{ font-size:12px; }
+  .result-table th,.result-table td{ padding:6px 8px; }
+}
+</style>
+</head>
+<body>
+
+<!-- 背景动画层 -->
+<div id="bg-anim"></div>
+<div id="eq"></div>
+
+<!-- ============ 主界面 ============ -->
+<div id="screen-main" class="screen">
+  <div class="main-card">
+    <div class="logo">♪ ♫ ♬</div>
+    <h1 class="title">节奏狼人杀</h1>
+    <div class="subtitle">音游企划 · 社交推理 · 谁是隐藏在企划里的坏人</div>
+    <div class="mode-select">
+      <button class="mode-btn active" id="btn-ai" onclick="selectMode('ai')">🤖 AI对战</button>
+      <button class="mode-btn" id="btn-online" onclick="selectMode('online')">🌐 联机模式</button>
+    </div>
+    <div class="player-count">
+      <div>玩家人数：<span id="pcount-val">8</span> 人（4-12）</div>
+      <input type="range" id="pcount" min="4" max="12" value="8"
+             oninput="document.getElementById('pcount-val').textContent=this.value">
+    </div>
+    <div class="name-input"><label>你的昵称：</label><input id="myname" maxlength="8" placeholder="玩家" value="你"></div>
+    <button class="big-btn" id="btn-start" onclick="mainStart()">▶ 开始游戏</button>
+    <div class="online-box" id="online-box" style="display:none">
+      <div class="online-row">
+        <input id="room-code" maxlength="4" placeholder="房间码" style="text-transform:uppercase">
+        <button class="mode-btn" onclick="joinRoom()">🔑 加入房间</button>
+      </div>
+      <div class="online-status" id="online-status">联机（PeerJS/WebRTC）：把本页发布到 GitHub Pages 等 HTTPS 地址后，<br>
+      房主点「创建房间」生成房间码，朋友在任意设备打开同一网址输入房间码即可加入。<br>无需自建服务器。</div>
+    </div>
+  </div>
+  <div class="roles-help" id="roles-help"></div>
+</div>
+
+<!-- ============ 游戏界面 ============ -->
+<div id="screen-game" class="screen">
+  <div id="topbar">
+    <span class="tb" id="phase-label">…</span>
+    <span class="tb" id="day-label">…</span>
+    <span class="tb" id="alive-label">…</span>
+    <span class="tb" id="bad-label">…</span>
+    <span class="tb" id="mode-label">…</span>
+    <button class="quit" id="btn-quit" onclick="quitGame()">✖ 退出</button>
+  </div>
+  <div id="left">
+    <h3>🎭 玩家列表</h3>
+    <div id="player-list"></div>
+  </div>
+  <div id="middle"><div id="log"></div></div>
+  <div id="right">
+    <button class="sheet-toggle" id="sheet-toggle" onclick="toggleSheet()">▼ 收起操作面板</button>
+    <div id="action-area"><div class="action-title">⏳</div><div class="waiting">游戏加载中…</div></div>
+  </div>
+  <div id="bottom">
+    <div id="quick-btns"></div>
+    <div class="chat-row">
+      <input id="chat-input" maxlength="60" placeholder="公屏发言...">
+      <button class="mode-btn" id="chat-send">发送</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 结算界面 ============ -->
+<div id="screen-result" class="screen">
+  <h1 id="result-title"></h1>
+  <div id="result-sub"></div>
+  <div id="result-detail"></div>
+  <button class="big-btn" onclick="location.reload()">🏠 返回主菜单</button>
+</div>
+
+<script>
+/* ================================================================
+   一、基础工具 & 音频（Web Audio 生成音效）
+   ================================================================ */
+function $(id){ return document.getElementById(id); }
+function rand(n){ return Math.floor(Math.random()*n); }
+function pick(arr){ return arr.length? arr[rand(arr.length)] : null; }
+function shuffle(arr){ const a=[...arr]; for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+const delay = ms => new Promise(r=>setTimeout(r,ms));
+
+let actx=null;
+function initAudio(){
+  if(!actx){ try{ actx=new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} }
+  if(actx && actx.state==='suspended') actx.resume();
+}
+document.addEventListener('click', initAudio, {once:true});
+function tone(freq, dur=0.12, type='sine', vol=0.15, delayT=0, slideTo=null){
+  if(!actx) return;
+  const t0=actx.currentTime+delayT, osc=actx.createOscillator(), g=actx.createGain();
+  osc.type=type; osc.frequency.setValueAtTime(freq,t0);
+  if(slideTo) osc.frequency.exponentialRampToValueAtTime(slideTo,t0+dur);
+  g.gain.setValueAtTime(vol,t0); g.gain.exponentialRampToValueAtTime(0.001,t0+dur);
+  osc.connect(g); g.connect(actx.destination);
+  osc.start(t0); osc.stop(t0+dur+0.02);
+}
+function sfx(name){
+  if(!actx) return;
+  switch(name){
+    case 'click':    tone(700,.06,'square',.08); break;
+    case 'vote':     tone(520,.09,'square',.10); tone(780,.12,'square',.10,.09); break;
+    case 'night':    tone(220,.5,'sine',.12,0,120); tone(330,.4,'sine',.08,.3); break;
+    case 'day':      tone(660,.1,'triangle',.12); tone(880,.1,'triangle',.12,.08); tone(1100,.14,'triangle',.12,.16); break;
+    case 'eliminate':tone(400,.2,'sawtooth',.12,0,150); tone(200,.3,'sawtooth',.10,.15,80); break;
+    case 'win':      [523,659,784,1046].forEach((f,i)=>tone(f,.18,'triangle',.12,i*.12)); break;
+    case 'lose':     [400,350,300,220].forEach((f,i)=>tone(f,.2,'sine',.12,i*.15)); break;
+    case 'start':    tone(440,.1,'square',.1); tone(660,.1,'square',.1,.1); tone(880,.15,'square',.1,.2); break;
+    case 'bug':      [800,600,800].forEach((f,i)=>tone(f,.1,'square',.1,i*.1)); break;
+    case 'fake':     tone(300,.15,'sawtooth',.1,0,600); break;
+    case 'leader':   tone(523,.12,'triangle',.12); tone(659,.12,'triangle',.12,.1); tone(784,.16,'triangle',.12,.2); break;
+  }
+}
+document.addEventListener('click', e=>{ if(e.target.closest('button')) sfx('click'); });
+
+/* ================================================================
+   二、职业定义（9大职业）
+   ================================================================ */
+const PROF = {
+  planner:{ id:'planner', name:'主策划', icon:'👑', color:'#ffd700', skillName:'视察',
+    skillDesc:'每晚查验一名玩家的阵营（好人/坏人）。白天拥有独裁权（决定最终淘汰谁）。', night:true, day:false },
+  composer:{ id:'composer', name:'曲师', icon:'🎵', color:'#00e5ff', skillName:'绝对音感',
+    skillDesc:'每晚监听一名玩家，得知其今晚是否使用了技能（是/否）。', night:true },
+  choreographer:{ id:'choreographer', name:'谱师', icon:'📐', color:'#ff4081', skillName:'节奏干扰',
+    skillDesc:'每晚选择一名玩家，使其今晚技能失效（被封锁者不知情）。', night:true },
+  artist:{ id:'artist', name:'美工', icon:'🎨', color:'#ff6ec7', skillName:'精修',
+    skillDesc:'每晚选择一名玩家，若其今晚被查验/监听，结果反转（好↔坏，用↔没用）。', night:true },
+  programmer:{ id:'programmer', name:'程序', icon:'💻', color:'#00e676', skillName:'查日志',
+    skillDesc:'每晚选择一名玩家，查看其上一晚的行动目标（对谁用了技能）。', night:true },
+  copywriter:{ id:'copywriter', name:'文案', icon:'📝', color:'#ffab40', skillName:'带节奏',
+    skillDesc:'白天一次性，发布一条伪造公屏信息到聊天区。', night:false, day:true, once:true },
+  diplomat:{ id:'diplomat', name:'外交', icon:'🤝', color:'#b388ff', skillName:'人脉',
+    skillDesc:'每晚选择一名玩家，直接得知其具体职业（不是阵营）。', night:true },
+  pv:{ id:'pv', name:'PV师', icon:'🎬', color:'#40c4ff', skillName:'剪辑',
+    skillDesc:'每晚选择一名玩家，屏蔽其当晚收到的所有信息。', night:true },
+  tester:{ id:'tester', name:'测试', icon:'🐛', color:'#69f0ae', skillName:'抓Bug',
+    skillDesc:'白天一次性，强制公开一名玩家的阵营，同时自己的阵营也被公开。', night:false, day:true, once:true },
+};
+const NIGHT_ROLES = ['planner','composer','choreographer','artist','programmer','diplomat','pv'];
+const DAY_ONCE_ROLES = ['copywriter','tester'];
+const AI_NAMES = ['小夜','阿岚','Miku酱','贝斯手','紫罗兰','鼓点','和弦','节拍','旋律','复调','华彩','切分','主音','和声'];
+function genAINames(k){ return shuffle(AI_NAMES).slice(0,k); }
+function hasNightSkill(p){ return NIGHT_ROLES.includes(p.roleId); }
+function hasDayOnceSkill(p){ return DAY_ONCE_ROLES.includes(p.roleId); }
+
+/* ================================================================
+   三、全局游戏状态
+   ================================================================ */
+let game = freshGame();
+let menuMode = 'ai';
+let pendingResolve = null;
+let currentActionKey = null;
+let sheetCollapsed = false;      // 手机端操作面板是否折叠
+
+let peer = null;
+let hostConn = null;
+let conns = {};
+let isHost = false;
+let roomCode = null;
+let mySeatId = 0;
+let pendingRemote = {};
+
+function freshGame(){
+  return { mode:'ai', host:false, code:null, roomSize:0, started:false, ended:false,
+    players:[], day:1, phase:'menu', winner:null, log:[],
+    humanId:0, pendingFor:null, pendingAction:null, lastVote:null, skipDictate:false };
+}
+function alivePlayers(){ return game.players.filter(p=>p.alive); }
+function aliveGood(){ return alivePlayers().filter(p=>p.faction==='good'); }
+function aliveBad(){ return alivePlayers().filter(p=>p.faction==='bad'); }
+function getPlayer(id){ return game.players.find(p=>p.id===id); }
+function getLeader(){ return game.players.find(p=>p.alive && p.isLeader) || null; }
+function humanPlayer(){ return game.players.find(p=>p.id===game.humanId); }
+function occupiedCount(){ return game.players.filter(p=>p.controller!=='empty').length; }
+
+/* ================================================================
+   四、日志系统
+   ================================================================ */
+function logMsg(vis, text, style='info'){
+  game.log.push({vis, text, style, day:game.day});
+  renderLog();
+  if(peer && isHost && game.started && style==='chat') broadcastState();
+}
+function logPublic(text, style='info'){ logMsg('all', text, style); }
+function logPrivate(seatId, text, style='private'){ logMsg(seatId, text, style); }
+function renderLog(){
+  const box=$('log'); const viewer=game.humanId;
+  const lines = game.log.filter(m=>m.vis==='all' || m.vis===viewer)
+    .map(m=>`<div class="log-line ${m.style}">${m.text}</div>`).join('');
+  box.innerHTML = lines;
+  box.scrollTop = box.scrollHeight;
+}
+
+/* ================================================================
+   五、身份分配
+   ================================================================ */
+function assignRoles(){
+  const others = shuffle(Object.keys(PROF).filter(r=>r!=='planner'));
+  const roles = ['planner', ...others];
+  game.players.forEach((p,i)=>{ p.roleId = roles[i % roles.length]; });
+}
+function assignFactions(){
+  const n = game.players.length;
+  const badCount = Math.max(1, Math.floor(n/3));
+  const idx = shuffle([...Array(n).keys()]);
+  const badIds = new Set(idx.slice(0,badCount));
+  game.players.forEach(p=>{ p.faction = badIds.has(p.id) ? 'bad':'good'; });
+}
+function ensurePlannerGood(){
+  const planner = game.players.find(p=>p.roleId==='planner');
+  if(planner && planner.faction==='bad'){
+    const good = game.players.find(p=>p.id!==planner.id && p.faction==='good');
+    if(good){ good.faction='bad'; planner.faction='good'; } else { planner.faction='good'; }
+  }
+}
+function makePlayer(id, name, controller){
+  return { id, seatId:id, name, controller, isAI:(controller==='ai'), roleId:null,
+    faction:null, alive:true, isLeader:false, revealed:false,
+    daySkillsUsed:{copywriter:false, tester:false}, lastNightAction:null, memory:{suspicion:{}} };
+}
+function startAI(n, humanName){
+  game = freshGame();
+  game.mode='ai'; game.humanId=0; game.started=true;
+  const names = [humanName||'你', ...genAINames(n-1)];
+  for(let i=0;i<n;i++) game.players.push(makePlayer(i, names[i], i===0?'human':'ai'));
+  assignRoles(); assignFactions(); ensurePlannerGood();
+  showScreen('game'); renderAll(); sfx('start');
+  runGame();
+}
+
+/* ================================================================
+   六、AI 逻辑
+   ================================================================ */
+function aiBestSuspicion(p, list){
+  let best=list[0], bs=-1;
+  for(const x of list){ const s=(p.memory.suspicion[x.id]??0.5); if(s>bs){ bs=s; best=x; } }
+  return best;
+}
+function aiNight(p){
+  const aliveOthers = alivePlayers().filter(x=>x.id!==p.id);
+  if(!aliveOthers.length) return null;
+  const bad = p.faction==='bad';
+  const goodPool = () => alivePlayers().filter(x=>x.alive && x.faction==='good' && x.id!==p.id);
+  const leader = getLeader();
+  switch(p.roleId){
+    case 'planner': return {targetId: aiBestSuspicion(p, aliveOthers).id};
+    case 'composer': { const t=bad?(leader&&leader.id!==p.id?leader:pick(aliveOthers)):pick(aliveOthers); return {targetId:t.id}; }
+    case 'choreographer': { let pool=bad?goodPool():aliveOthers; if(bad&&leader&&pool.includes(leader)&&Math.random()<0.6) pool=[leader]; if(!pool.length) pool=aliveOthers; return {targetId:pick(pool).id}; }
+    case 'artist': { let pool=bad?goodPool():aliveOthers; if(bad&&leader&&pool.includes(leader)&&Math.random()<0.5) pool=[leader]; if(!pool.length) pool=aliveOthers; return {targetId:pick(pool).id}; }
+    case 'programmer': { const pool=bad?(goodPool().length?goodPool():aliveOthers):aliveOthers; return {targetId:pick(pool).id}; }
+    case 'diplomat': { const pool=bad?(goodPool().length?goodPool():aliveOthers):aliveOthers; return {targetId:pick(pool).id}; }
+    case 'pv': { let pool=bad?goodPool():aliveOthers; if(bad&&leader&&pool.includes(leader)&&Math.random()<0.6) pool=[leader]; if(!pool.length) pool=aliveOthers; return {targetId:pick(pool).id}; }
+  }
+  return null;
+}
+function aiVote(p){
+  const aliveOthers = alivePlayers().filter(x=>x.id!==p.id);
+  if(!aliveOthers.length) return null;
+  if(p.faction==='bad'){
+    const goods = aliveOthers.filter(x=>x.faction==='good');
+    const pool = goods.length?goods:aliveOthers;
+    const leader = getLeader();
+    if(leader && leader.id!==p.id && pool.includes(leader) && Math.random()<0.35) return leader.id;
+    return pick(pool).id;
+  } else {
+    if(Math.random()<0.3) return pick(aliveOthers).id;
+    return aiBestSuspicion(p, aliveOthers).id;
+  }
+}
+function aiDictate(p, topId){
+  const aliveOthers = alivePlayers().filter(x=>x.alive && x.id!==p.id);
+  const best = aiBestSuspicion(p, aliveOthers);
+  const bs = (p.memory.suspicion[best.id] ?? 0.5);
+  if(bs>=0.65) return {useDictation:true, targetId:best.id};
+  if(topId!=null && topId!==p.id) return {useDictation:false};
+  return {useDictation:true, targetId:best.id};
+}
+function aiCopywriter(p){
+  const others = alivePlayers().filter(x=>x.id!==p.id && x.alive);
+  if(!others.length) return {use:false};
+  if(p.faction==='bad'){
+    if(Math.random()<0.8){ const t=pick(others.filter(x=>x.faction==='good'))||pick(others); return {use:true, text:`${t.name} 就是坏人！我昨晚亲眼看见的！`}; }
+    return {use:false};
+  } else {
+    if(Math.random()<0.5){ const t=aiBestSuspicion(p, others); return {use:true, text:`我怀疑 ${t.name} 是坏人，大家投票淘汰他！`}; }
+    return {use:false};
+  }
+}
+function aiTester(p){
+  if(p.faction==='bad') return {use:false};
+  const others = alivePlayers().filter(x=>x.id!==p.id && x.alive);
+  if(!others.length) return {use:false};
+  if(Math.random()<0.7){ const t=aiBestSuspicion(p, others); return {use:true, targetId:t.id}; }
+  return {use:false};
+}
+function aiAction(p, opts){
+  switch(opts.type){
+    case 'night': return aiNight(p);
+    case 'vote': return aiVote(p);
+    case 'dictate': return aiDictate(p, opts.topId);
+    case 'copywriter': return aiCopywriter(p);
+    case 'tester': return aiTester(p);
+  }
+  return null;
+}
+async function aiSpeeches(){
+  const speakers = alivePlayers().filter(p=>p.controller==='ai' && Math.random()<0.5);
+  for(const sp of speakers){
+    const others = alivePlayers().filter(x=>x.id!==sp.id);
+    if(!others.length) continue;
+    let text;
+    if(sp.faction==='bad'){
+      const t = pick(others.filter(x=>x.faction==='good'))||pick(others);
+      text = pick([`我怀疑 ${t.name} 有问题！`,`别投我，我建议投 ${t.name}！`,`有人带节奏，但我信 ${t.name} 是狼！`]);
+    } else {
+      const t = aiBestSuspicion(sp, others);
+      text = (sp.memory.suspicion[t.id]||0.5)>0.6 ? pick([`${t.name} 很可疑，投他！`,`我信息显示 ${t.name} 不是好人！`]) : pick(['我是好人，大家理性投票。','先观察，别乱投。']);
+    }
+    logPublic(`💬 ${sp.name}：${text}`,'chat');
+    await delay(600);
+  }
+}
+function aiMaybeRespond(){
+  if(Math.random()>0.25) return;
+  const ai = pick(alivePlayers().filter(p=>p.controller==='ai'));
+  if(!ai) return;
+  const others = alivePlayers().filter(p=>p.id!==ai.id && p.alive);
+  const n = others.length? pick(others).name : '某人';
+  const msgs = [`我怀疑${n}`,'我信息还不全，再观察一下','我是好人，别投我！','主策划可以查验一下某个人','听我的，投那个不说话的人','夜晚我掌握了关键信息！'];
+  setTimeout(()=>logPublic(`💬 ${ai.name}：${pick(msgs)}`,'chat'), 600+rand(1200));
+}
+
+/* ================================================================
+   七、夜晚结算：技能交互
+   ================================================================ */
+function resolveNight(actions){
+  const alive = alivePlayers();
+  const disabled = new Set();
+  alive.forEach(p=>{ if(p.roleId==='choreographer' && actions[p.id] && actions[p.id].targetId) disabled.add(actions[p.id].targetId); });
+  const reversed = new Set();
+  alive.forEach(p=>{ if(p.roleId==='artist' && actions[p.id] && actions[p.id].targetId && !disabled.has(p.id)) reversed.add(actions[p.id].targetId); });
+  const blocked = new Set();
+  alive.forEach(p=>{ if(p.roleId==='pv' && actions[p.id] && actions[p.id].targetId && !disabled.has(p.id)) blocked.add(actions[p.id].targetId); });
+  const results = {};
+  alive.forEach(p=>{
+    const a = actions[p.id];
+    if(!a || !a.targetId) return;
+    const target = getPlayer(a.targetId);
+    let text = null;
+    if(disabled.has(p.id)){
+      text = `🌀 你的技能被神秘力量干扰，今晚发动失败了！（你并未察觉原因）`;
+    } else {
+      switch(p.roleId){
+        case 'planner': {
+          let f = target.faction;
+          if(reversed.has(target.id)) f = (f==='good'?'bad':'good');
+          text = `🔍【视察】查验 ${target.name}：阵营为【${f==='good'?'好人':'坏人'}】`;
+          if(p.controller!=='human') p.memory.suspicion[target.id] = (f==='bad'?1:0.1);
+          break;
+        }
+        case 'composer': {
+          let used = !!(actions[target.id] && actions[target.id].targetId);
+          if(reversed.has(target.id)) used = !used;
+          text = `👂【绝对音感】监听 ${target.name}：今晚${used?'使用了':'没有使用'}技能`;
+          break;
+        }
+        case 'programmer': {
+          const la = target.lastNightAction;
+          const tn = (la && la.targetId && getPlayer(la.targetId)) ? getPlayer(la.targetId).name : '无行动';
+          text = `💻【查日志】${target.name} 上一晚的行动目标是：【${tn}】`;
+          break;
+        }
+        case 'diplomat': {
+          text = `🤝【人脉】${target.name} 的职业是：【${PROF[target.roleId].name}】`;
+          break;
+        }
+      }
+      if(text && blocked.has(p.id)) text = `📡【剪辑】你的信息被屏蔽，今晚没有收到任何反馈。`;
+    }
+    if(text) results[p.id] = text;
+  });
+  alive.forEach(p=>{
+    const a = actions[p.id];
+    p.lastNightAction = { used: !!(a&&a.targetId), targetId: (a&&a.targetId)||null };
+  });
+  return results;
+}
+
+/* ================================================================
+   八、玩家输入桥接
+   ================================================================ */
+async function getAction(p, opts){
+  if(p.controller==='human') return await askHuman(opts);
+  else if(p.controller==='ai'){ await delay(150); return aiAction(p, opts); }
+  else return await waitRemoteAction(p, opts);
+}
+function askHuman(opts){
+  return new Promise(resolve=>{
+    pendingResolve = (val)=>{ pendingResolve=null; clearActionUI(); resolve(val); };
+    renderHumanAction(opts);
+    if(game.mode==='online' && isHost){ game.pendingFor=game.humanId; game.pendingAction=opts; broadcastState(); }
+  });
+}
+function renderHumanAction(opts){
+  const area=$('action-area');
+  const me = humanPlayer();
+  const others = alivePlayers().filter(p=>p.id!==me.id);
+  let html='';
+  switch(opts.type){
+    case 'night': {
+      const prof = PROF[me.roleId];
+      html = `<div class="action-title">🌙 夜间行动 · ${prof.name} ${prof.icon}</div>
+        <div class="skill-card" style="border-color:${prof.color}">
+          <span class="skill-icon">${prof.icon}</span><b>${prof.skillName}</b>
+          <p>${prof.skillDesc}</p>
+        </div><div class="target-list">`;
+      others.forEach(p=>{ html+=`<button class="target-btn" onclick="submitHuman({targetId:${p.id}})">🎭 ${p.name}</button>`; });
+      html += `</div><button class="skip-btn" onclick="submitHuman(null)">跳过（不使用技能）</button>`;
+      break;
+    }
+    case 'copywriter': {
+      html = `<div class="action-title">📝 带节奏（一次性）</div>
+        <div class="skill-card">发布一条伪造公屏信息到聊天区（只有你知道是假的）。</div>
+        <input id="fake-text" maxlength="30" placeholder="输入伪造情报内容..." style="width:100%;margin-bottom:6px;background:rgba(0,0,0,.35);border:1px solid var(--line);color:#eee;border-radius:8px;padding:8px">
+        <button class="target-btn" onclick="submitHuman({use:true, text:document.getElementById('fake-text').value})">📢 发布伪造消息</button>
+        <button class="skip-btn" onclick="submitHuman({use:false})">不使用</button>`;
+      break;
+    }
+    case 'tester': {
+      html = `<div class="action-title">🐛 抓Bug（一次性）</div>
+        <div class="skill-card">强制公开一名玩家的阵营，同时自己的阵营也会被公开。</div><div class="target-list">`;
+      others.forEach(p=>{ html+=`<button class="target-btn" onclick="submitHuman({use:true, targetId:${p.id}})">🎭 ${p.name}</button>`; });
+      html += `</div><button class="skip-btn" onclick="submitHuman({use:false})">不使用</button>`;
+      break;
+    }
+    case 'vote': {
+      html = `<div class="action-title">🗳️ 投票 · 淘汰一名玩家</div><div class="target-list">`;
+      others.forEach(p=>{ html+=`<button class="target-btn" onclick="submitHuman(${p.id})">🎭 ${p.name}</button>`; });
+      html += `</div><button class="skip-btn" onclick="submitHuman(null)">弃票</button>`;
+      break;
+    }
+    case 'dictate': {
+      const topId = opts.topId;
+      const topName = (topId!=null && getPlayer(topId)) ? getPlayer(topId).name : '无人';
+      html = `<div class="action-title">👑 独裁权 · 主策划</div>
+        <div class="skill-card">投票最高票：${topName}。你可以服从投票结果，或独裁指定淘汰他人（不能选自己）。</div><div class="target-list">`;
+      html += `<button class="target-btn ok" onclick="submitHuman({useDictation:false})">✅ 服从投票（淘汰 ${topName}）</button>`;
+      others.forEach(p=>{ html+=`<button class="target-btn" onclick="submitHuman({useDictation:true, targetId:${p.id}})">👑 独裁淘汰 ${p.name}</button>`; });
+      html += `</div>`;
+      break;
+    }
+  }
+  area.innerHTML = html;
+  setSheet(true);
+}
+function submitHuman(value){
+  if(game.mode==='online' && !isHost){
+    if(pendingResolve){ pendingResolve(value); }
+    if(hostConn) hostConn.send({type:'action', seatId:game.humanId, action:value});
+    $('action-area').innerHTML = `<div class="action-title">✅ 已提交</div>`;
+    setSheet(false);
+  } else if(pendingResolve){ pendingResolve(value); }
+}
+function clearActionUI(){
+  const area=$('action-area');
+  if(game.winner){ area.innerHTML=`<div class="action-title">🏁 游戏结束</div>`; setSheet(false); return; }
+  const map={ night:['🌙 夜晚','其他玩家正在行动…'], election:['🗳️ 选举','主策划选举中…'],
+    day:['☀️ 白天','等待其他玩家…'], voting:['🗳️ 投票','等待其他玩家…'], dictate:['👑 独裁','等待主策划决定…'] };
+  const m=map[game.phase]; if(m) area.innerHTML=`<div class="action-title">${m[0]}</div><div class="waiting">${m[1]}</div>`;
+  setSheet(false);
+}
+/* 操作面板高亮：轮到你时标出边框 */
+function setSheet(show){ const r=$('right'); if(r) r.classList.toggle('show', !!show); }
+/* 手机端折叠/展开 */
+function toggleSheet(){
+  sheetCollapsed = !sheetCollapsed;
+  $('right').classList.toggle('collapsed', sheetCollapsed);
+  const b=$('sheet-toggle');
+  if(b) b.textContent = sheetCollapsed ? '▲ 展开操作面板' : '▼ 收起操作面板';
+}
+
+/* ================================================================
+   九、游戏主流程
+   ================================================================ */
+async function runGame(){
+  await electionCeremony();
+  if(checkWin()){ endGame(); return; }
+  while(!game.winner){
+    await doNight();
+    if(game.winner) break;
+    await doDay();
+    if(game.winner) break;
+  }
+  endGame();
+}
+async function electionCeremony(){
+  game.phase='election'; updatePhaseLabel(); renderAll();
+  logPublic('🗳️ 游戏开始！全体好人阵营进行主策划选举投票……','system');
+  sfx('vote'); await delay(1300);
+  const goods = aliveGood();
+  const planner = game.players.find(p=>p.roleId==='planner' && p.alive);
+  let leader;
+  if(goods.length<=1){
+    leader = planner || goods[0];
+    logPublic(`💡 好人阵营只有 ${leader.name} 一人，自动当选为主策划！`,'system');
+  } else {
+    const vlog = goods.map(g=>g.name).join('、');
+    logPublic(`🗳️ 投票：${vlog} 均投出赞成票，${planner.name} 全票当选主策划！`,'system');
+    leader = planner;
+  }
+  if(leader.roleId!=='planner'){ leader.roleId='planner'; logPrivate(leader.id,'你继承了主策划职业（获得视察与独裁权）。','warn'); }
+  leader.isLeader=true;
+  logPublic(`👑 ${leader.name} 当选主策划，获得【视察】与【独裁】权力！`,'leader');
+  sfx('leader'); renderAll(); await delay(1000);
+  if(isHost) broadcastState();
+}
+async function doNight(){
+  game.phase='night'; game.skipDictate=false; updatePhaseLabel(); renderAll();
+  logPublic(`🌙 第 ${game.day} 夜降临……`,'night');
+  sfx('night'); await delay(900);
+  if(isHost){ game.pendingFor=null; game.pendingAction=null; broadcastState(); }
+  const actions = {};
+  for(const p of alivePlayers()){
+    if(!hasNightSkill(p)){ actions[p.id]=null; continue; }
+    const act = await getAction(p, {type:'night', day:game.day});
+    actions[p.id] = act || null;
+    if(isHost){ game.pendingFor=null; game.pendingAction=null; broadcastState(); }
+  }
+  logPublic('🌠 夜空下，技能交织……其他玩家正在行动','system');
+  await delay(700);
+  const results = resolveNight(actions);
+  for(const [pid, text] of Object.entries(results)){ logPrivate(+pid, text, 'result'); }
+  game.day++;
+  updatePhaseLabel(); renderAll(); await delay(900);
+  if(isHost) broadcastState();
+}
+async function doDay(){
+  game.phase='day'; updatePhaseLabel(); renderAll();
+  logPublic(`☀️ 第 ${game.day} 天，天亮了。`,'day');
+  sfx('day'); await delay(900);
+  if(isHost){ game.pendingFor=null; game.pendingAction=null; broadcastState(); }
+  for(const p of alivePlayers()){
+    if(hasDayOnceSkill(p)) await handleDaySkill(p);
+  }
+  await votingPhase();
+  if(game.winner) return;
+  await dictationPhase();
+}
+async function handleDaySkill(p){
+  if(p.roleId==='copywriter' && !p.daySkillsUsed.copywriter){
+    const use = await getAction(p, {type:'copywriter'});
+    if(isHost){ game.pendingFor=null; game.pendingAction=null; broadcastState(); }
+    if(use && use.use){
+      p.daySkillsUsed.copywriter=true;
+      let text = (use.text||'').trim();
+      if(!text) text = `${pick(alivePlayers()).name} 好像是坏人，大家小心！`;
+      logPublic(`📡【情报广播】有内部消息称：“${text}”`,'fake');
+      logPrivate(p.id,'（你使用了【带节奏】，上面这条是伪造消息，只有你知道真相。）','warn');
+      sfx('fake');
+    }
+  } else if(p.roleId==='tester' && !p.daySkillsUsed.tester){
+    const use = await getAction(p, {type:'tester'});
+    if(isHost){ game.pendingFor=null; game.pendingAction=null; broadcastState(); }
+    if(use && use.use){
+      p.daySkillsUsed.tester=true;
+      const t = getPlayer(use.targetId);
+      t.revealed=true; p.revealed=true;
+      logPublic(`🐛【抓Bug】测试员 ${p.name} 强制公开 ${t.name} 的阵营：${t.faction==='good'?'好人':'坏人'}！`,'bug');
+      logPublic(`🐛 同时 ${p.name} 自己的阵营也被公开：${p.faction==='good'?'好人':'坏人'}！`,'bug');
+      alivePlayers().forEach(ai=>{ if(ai.controller!=='human'){ ai.memory.suspicion[t.id]=(t.faction==='bad'?1:0); ai.memory.suspicion[p.id]=(p.faction==='bad'?1:0); } });
+      sfx('bug');
+    }
+  }
+  await delay(400);
+  if(isHost) broadcastState();
+}
+async function votingPhase(){
+  game.phase='voting'; updatePhaseLabel(); renderAll();
+  logPublic(`🗳️ 第 ${game.day} 天投票开始，请选择要淘汰的玩家。`,'system');
+  if(isHost){ game.pendingFor=null; game.pendingAction=null; broadcastState(); }
+  await aiSpeeches();
+  const votes = {};
+  for(const p of alivePlayers()){
+    const v = await getAction(p, {type:'vote'});
+    votes[p.id] = (v!=null && v!==p.id) ? v : null;
+    if(isHost){ game.pendingFor=null; game.pendingAction=null; broadcastState(); }
+    if(votes[p.id]==null && p.controller!=='human') logPublic(`${p.name} 弃票了。`,'system');
+  }
+  tallyVotes(votes);
+  await delay(900);
+}
+function tallyVotes(votes){
+  const counts={}; alivePlayers().forEach(p=>counts[p.id]=0);
+  alivePlayers().forEach(p=>{ const t=votes[p.id]; if(t!=null) counts[t]=(counts[t]||0)+1; });
+  const lines = alivePlayers().map(p=>`${p.name}: ${counts[p.id]}票`).join(' · ');
+  logPublic(`🗳️ 投票统计：${lines}`,'vote');
+  const total = alivePlayers().length;
+  const topCount = Math.max(...Object.values(counts));
+  const tops = Object.keys(counts).filter(k=>counts[k]===topCount).map(Number);
+  const topId = tops.length? pick(tops) : null;
+  const leader = getLeader();
+  const leaderVotes = leader ? (counts[leader.id]||0) : 0;
+  game.lastVote = { topId, topCount, total, counts, leaderVotes };
+  if(leader && leaderVotes/total >= 0.5){
+    game.skipDictate = true;
+    logPublic(`⚖️【制衡】${leader.name} 得票 ${leaderVotes}/${total} ≥ 50%，主策划被强制淘汰，独裁权无效！`,'warn');
+    sfx('eliminate'); eliminate(leader.id);
+  } else if(topCount>0){
+    logPublic(`🗳️ 得票最高的是 ${getPlayer(topId).name}（${topCount}票）。`,'vote');
+  } else {
+    game.lastVote.pending=null;
+    logPublic(`🗳️ 无人得票，本日无人被淘汰。`,'system');
+  }
+  if(isHost) broadcastState();
+}
+async function dictationPhase(){
+  if(game.winner) return;
+  if(game.skipDictate){ game.skipDictate=false; return; }
+  game.phase='dictate'; updatePhaseLabel(); renderAll();
+  const leader = getLeader();
+  const lastVote = game.lastVote;
+  if(isHost){ game.pendingFor=null; game.pendingAction=null; broadcastState(); }
+  if(!leader){
+    if(lastVote && lastVote.topId!=null && getPlayer(lastVote.topId) && getPlayer(lastVote.topId).alive){
+      logPublic(`🗳️ 主策划不在，按投票结果执行：${getPlayer(lastVote.topId).name} 被淘汰。`,'system');
+      eliminate(lastVote.topId);
+    }
+    if(isHost) broadcastState();
+    return;
+  }
+  logPublic(`👑 ${leader.name}（主策划）正在行使独裁权……`,'leader');
+  const choice = await getAction(leader, {type:'dictate', topId: lastVote?lastVote.topId:null});
+  if(isHost){ game.pendingFor=null; game.pendingAction=null; broadcastState(); }
+  let targetId = (choice && choice.useDictation) ? choice.targetId : (lastVote?lastVote.topId:null);
+  if(targetId==null || targetId===leader.id) targetId = lastVote?lastVote.topId:null;
+  if(targetId!=null && getPlayer(targetId) && getPlayer(targetId).alive){
+    logPublic(`👑 独裁结果：${getPlayer(targetId).name} 被最终淘汰！`,'leader');
+    sfx('eliminate'); eliminate(targetId);
+  } else {
+    logPublic(`🗳️ 本日无人被淘汰。`,'system');
+  }
+  await delay(500);
+  if(isHost) broadcastState();
+}
+function eliminate(pid){
+  const p=getPlayer(pid); if(!p||!p.alive) return;
+  p.alive=false; p.revealed=true;
+  const role=PROF[p.roleId];
+  logPublic(`☠️ ${p.name} 被淘汰出局！`,'dead');
+  logPublic(`   身份揭晓：${p.faction==='good'?'😇好人':'😈坏人'}阵营 · ${role.icon}${role.name}`,'dead');
+  sfx('eliminate');
+  alivePlayers().forEach(ai=>{ if(ai.controller!=='human') ai.memory.suspicion[p.id]=(p.faction==='bad'?1:0); });
+  if(p.isLeader) electNewLeader();
+  checkWin(); renderAll();
+}
+function electNewLeader(){
+  const goods = aliveGood();
+  if(!goods.length){ checkWin(); return; }
+  const winner = pick(goods);
+  game.players.forEach(x=>x.isLeader=false);
+  winner.isLeader=true;
+  const oldRole = winner.roleId;
+  winner.roleId='planner';
+  logPublic(`👑 主策划被淘汰！好人阵营重新选举，${winner.name} 当选新任主策划！`,'leader');
+  if(oldRole!=='planner'){
+    logPrivate(winner.id, `你接任主策划职业，获得【视察】与【独裁】权（原${PROF[oldRole].name}技能弃用）。`,'warn');
+  }
+  logPublic(`👑 新任主策划获得【视察】与【独裁】权力！`,'leader');
+  sfx('leader');
+}
+function checkWin(){
+  if(game.winner) return true;
+  const good=aliveGood().length, bad=aliveBad().length;
+  if(bad===0){ game.winner='good'; }
+  else if(good===0){ game.winner='bad'; }
+  else {
+    const leader=getLeader();
+    if(bad>=good && !leader){ game.winner='bad'; }
+  }
+  return !!game.winner;
+}
+function endGame(){
+  if(game.ended) return; game.ended=true;
+  game.phase='result'; updatePhaseLabel();
+  game.winner = game.winner || (aliveBad().length===0?'good':'bad');
+  renderResult(); showScreen('result');
+  sfx(game.winner==='good'?'win':'lose');
+  if(isHost) broadcastState();
+}
+function renderResult(){
+  const me = humanPlayer();
+  $('result-title').textContent = game.winner==='good' ? '🎉 好人阵营胜利！' : '😈 坏人阵营胜利！';
+  const myWin = (game.winner==='good' && me.faction==='good') || (game.winner==='bad' && me.faction==='bad');
+  $('result-sub').textContent = myWin ? '★ 你获得了胜利！' : '✖ 你输掉了本局。';
+  let html='<table class="result-table"><tr><th>玩家</th><th>职业</th><th>阵营</th><th>状态</th></tr>';
+  game.players.forEach(p=>{
+    const r=PROF[p.roleId];
+    html+=`<tr><td>${p.name}${p.id===game.humanId?'（你）':''}</td><td>${r.icon}${r.name}</td><td>${p.faction==='good'?'😇好人':'😈坏人'}</td><td>${p.alive?'存活':'淘汰'}</td></tr>`;
+  });
+  html+='</table>';
+  $('result-detail').innerHTML=html;
+}
+
+/* ================================================================
+   十、UI 渲染
+   ================================================================ */
+function phaseText(){
+  const map={election:'🗳️ 选举',night:'🌙 夜晚',day:'☀️ 白天',voting:'🗳️ 投票',dictate:'👑 独裁',result:'🏁 结算'};
+  return map[game.phase]||'';
+}
+function updatePhaseLabel(){ $('phase-label').innerHTML='状态：<b>'+phaseText()+'</b>'; }
+function renderAll(){
+  renderTopBar(); renderPlayerList(); renderLog(); renderBottom();
+  if(game.mode==='online'){
+    if(!game.started){ renderLobby(); }
+    else if(!isHost){ renderClientAction(); }
+  }
+}
+function renderTopBar(){
+  $('phase-label').innerHTML='状态：<b>'+phaseText()+'</b>';
+  $('day-label').innerHTML='📅 第 <b>'+game.day+'</b> 天';
+  $('alive-label').innerHTML='存活 <b>'+alivePlayers().length+'</b>/'+game.players.length;
+  $('bad-label').innerHTML='坏人剩余 <b>'+aliveBad().length+'</b>';
+  $('mode-label').innerHTML = game.mode==='ai' ? '🤖 AI对战' : ('🌐 联机 '+(game.code||''));
+}
+function renderPlayerList(){
+  const box=$('player-list'); let html='';
+  game.players.forEach(p=>{
+    if(p.controller==='empty'){
+      html+=`<div class="player-card dead"><div class="p-head"><span class="p-name">${p.name}</span></div><div class="p-meta"><span>⏳ 等待加入</span></div></div>`;
+      return;
+    }
+    const r=PROF[p.roleId]||{icon:'❓',name:'?'};
+    const isMe=p.id===game.humanId;
+    const known=p.revealed||isMe;
+    const roleTxt = known? `${r.icon}${r.name}`:'❓';
+    const facTxt  = known? (p.faction==='good'?'😇好人':'😈坏人'):'❓';
+    const leaderBadge = (p.isLeader&&p.alive)?'👑':'';
+    html+=`<div class="player-card ${p.alive?'':'dead'} ${isMe?'me':''} ${p.isLeader&&p.alive?'leader':''}">
+      <div class="p-head"><span class="p-name">${p.name}${leaderBadge}${isMe?'（你）':''}</span><span>${p.alive?'':'💀'}</span></div>
+      <div class="p-meta"><span class="p-role">${roleTxt}</span><span class="p-fac ${p.faction==='bad'&&known?'bad':''}">${isMe?'我的阵营：'+facTxt:facTxt}</span></div>
+    </div>`;
+  });
+  box.innerHTML=html;
+}
+function renderBottom(){
+  const others = alivePlayers().filter(p=>p.id!==game.humanId);
+  const n1=others[rand(others.length)]||{name:'某人'}, n2=others[rand(others.length)]||{name:'某人'};
+  const btns=[`🎤 怀疑${n1.name}`,`🛡️ 我是好人`,`🔍 请查验${n1.name}`,`🗳️ 投${n2.name}`];
+  $('quick-btns').innerHTML = btns.map(t=>`<button class="quick-btn" onclick="sendChat('${t}')">${t}</button>`).join('');
+}
+function sendChat(text){
+  text=(text||'').trim(); if(!text) return;
+  const me=humanPlayer(); if(!me) return;
+  if(game.mode==='online' && !isHost && hostConn){ hostConn.send({type:'chat', seatId:game.humanId, text}); }
+  else {
+    logPublic(`💬 ${me.name}：${text}`,'chat');
+    if(game.mode==='ai') aiMaybeRespond();
+  }
+  $('chat-input').value='';
+}
+function quitGame(){
+  if(!confirm('确定退出当前游戏？')) return;
+  try{ if(hostConn) hostConn.close(); if(peer) peer.destroy(); }catch(e){}
+  location.reload();
+}
+function showScreen(name){
+  ['main','game','result'].forEach(s=>{
+    const el=$('screen-'+s);
+    if(el) el.classList.toggle('active', s===name);
+  });
+}
+
+/* ================================================================
+   十一、联机模式：PeerJS（WebRTC 点对点，跨设备跨网络）
+   ================================================================ */
+function genRoomCode(){
+  const chars='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let c='';
+  for(let i=0;i<4;i++) c+=chars[rand(chars.length)];
+  return c;
+}
+function peerIdFor(code){ return 'rw-'+code; }
+
+/* ---------- 房主 ---------- */
+function hostRoom(n, name){
+  if(typeof Peer === 'undefined'){ alert('PeerJS 加载失败，请确认页面在 HTTPS 环境且网络正常。'); return; }
+  isHost=true; mySeatId=0;
+  roomCode = genRoomCode();
+  game = freshGame(); game.mode='online'; game.host=true; game.code=roomCode; game.roomSize=n;
+  game.players.push(makePlayer(0, name||'房主','human'));
+  for(let i=1;i<n;i++) game.players.push(makePlayer(i,'等待加入'+(i+1)+'号','empty'));
+  conns={};
+  peer = new Peer(peerIdFor(roomCode), {debug:1});
+  peer.on('open', ()=>{
+    logPublic(`🏠 房间创建成功！房间码：${roomCode}`,'system');
+    logPublic(`📡 把本页网址发给朋友，他们打开后输入房间码 ${roomCode} 即可加入。`,'system');
+    sfx('start'); showScreen('game'); renderAll();
+  });
+  peer.on('connection', conn=>{
+    conn.on('data', d=>hostHandleData(conn,d));
+    conn.on('close', ()=>{ const s=findConnSeat(conn); if(s!=null) logPublic(`${game.players[s].name} 断开了连接。`,'warn'); });
+    conn.on('error', ()=>{});
+  });
+  peer.on('error', err=>{
+    if(err.type==='unavailable-id'){
+      roomCode = genRoomCode();
+      logPublic(`⏳ 房间码被占用，重新生成…`,'warn');
+      peer.destroy();
+      peer = new Peer(peerIdFor(roomCode), {debug:1});
+      peer.on('open', ()=>{ logPublic(`🏠 房间创建成功！房间码：${roomCode}`,'system'); renderAll(); });
+      peer.on('connection', conn=>{ conn.on('data', d=>hostHandleData(conn,d)); });
+      peer.on('error', ()=>{});
+    } else if(err.type==='network'||err.type==='server-error'){
+      logPublic('⚠️ 无法连接 PeerJS 信令服务器，请检查网络后重试。','warn');
+    }
+  });
+  showScreen('game'); renderAll();
+}
+function findConnSeat(conn){
+  for(const [sid,c] of Object.entries(conns)){ if(c===conn) return +sid; }
+  return null;
+}
+function hostHandleData(conn, d){
+  if(d.type==='join'){
+    const empty = game.players.find(p=>p.controller==='empty');
+    if(!empty){ conn.send({type:'joinResult', ok:false, msg:'房间已满'}); return; }
+    empty.name = d.name || ('玩家'+(empty.id+1));
+    empty.controller='remote'; empty.isAI=false;
+    conns[empty.id]=conn;
+    conn.send({type:'joinResult', ok:true, seatId:empty.id, size:game.roomSize, hostName:game.players[0].name});
+    conn.send({type:'state', state:packState()});
+    logPublic(`${empty.name} 加入了游戏！（${occupiedCount()}/${game.roomSize}）`,'system');
+    sfx('click'); renderAll(); broadcastState();
+  }
+  if(d.type==='action'){
+    const seat = game.players.find(p=>p.id===d.seatId);
+    if(seat && pendingRemote[seat.id]) pendingRemote[seat.id].resolve(d.action);
+  }
+  if(d.type==='chat'){
+    const seat = game.players.find(p=>p.id===d.seatId);
+    if(seat) logPublic(`💬 ${seat.name}：${d.text}`,'chat');
+  }
+}
+function startOnlineGame(){
+  if(!isHost) return;
+  if(occupiedCount()<game.roomSize){ alert('人数未满，无法开始'); return; }
+  game.players.forEach(p=>{ p.controller = (p.id===0)?'human':'remote'; });
+  game.humanId=0; game.started=true;
+  assignRoles(); assignFactions(); ensurePlannerGood();
+  showScreen('game');
+  logPublic('🎮 所有玩家就绪，身份分配完毕，游戏开始！','system');
+  renderAll(); broadcastState(); sfx('start');
+  runGame();
+}
+
+/* ---------- 客户端 ---------- */
+function joinRoom(){
+  if(typeof Peer === 'undefined'){ alert('PeerJS 加载失败，请确认页面在 HTTPS 环境且网络正常。'); return; }
+  const code = $('room-code').value.trim().toUpperCase();
+  if(!code){ alert('请输入房间码'); return; }
+  roomCode = code;
+  const name = $('myname').value.trim()||'玩家';
+  isHost=false;
+  game = freshGame(); game.mode='online'; game.host=false; game.code=code; game.humanId=-1;
+  peer = new Peer();
+  peer.on('open', ()=>{
+    hostConn = peer.connect(peerIdFor(code), {reliable:true});
+    hostConn.on('open', ()=>{ hostConn.send({type:'join', name}); });
+    hostConn.on('data', d=>clientHandleData(d));
+    hostConn.on('close', ()=>{ if(!game.winner){ $('action-area').innerHTML=`<div class="action-title">⚠️ 与房主断开</div><div class="waiting">房主可能关闭了页面，请返回重进。</div>`; setSheet(true); } });
+    hostConn.on('error', err=>{ $('online-status').textContent='连接错误：'+err.type; });
+  });
+  peer.on('error', err=>{
+    if(err.type==='peer-unavailable'){ $('online-status').textContent='❌ 找不到该房间，请检查房间码！'; }
+    else if(err.type==='network'||err.type==='server-error'){ $('online-status').textContent='⚠️ 网络/信令服务器异常，请重试。'; }
+    else $('online-status').textContent='❌ 加入失败：'+err.type;
+  });
+}
+function clientHandleData(d){
+  if(d.type==='joinResult'){
+    if(!d.ok){ $('online-status').textContent='❌ 加入失败：'+d.msg; return; }
+    game.humanId=d.seatId; mySeatId=d.seatId; game.roomSize=d.size;
+    game.players = Array.from({length:d.size},(_,i)=>makePlayer(i, i===0?d.hostName:('玩家'+(i+1)), i===d.seatId?'human':'remote'));
+    game.players[d.seatId].name = $('myname').value.trim()||'玩家';
+    showScreen('game'); renderAll();
+    logPublic(`🔑 你已加入房间 ${roomCode}，座位 ${d.seatId+1}。等待房主开始…`,'system');
+  }
+  if(d.type==='state'){
+    const prevWinner = game.winner;
+    adoptState(d.state);
+    if(d.state.winner && !prevWinner) endGame();
+  }
+}
+
+/* ---------- 状态打包/广播 ---------- */
+function packState(){
+  const snap = JSON.parse(JSON.stringify(game));
+  snap.pendingFor = game.pendingFor||null;
+  snap.pendingAction = game.pendingAction||null;
+  return snap;
+}
+function broadcastState(){
+  if(!peer || !isHost) return;
+  const snap = packState();
+  for(const c of Object.values(conns)){ try{ c.send({type:'state', state:snap}); }catch(e){} }
+}
+function waitRemoteAction(seat, opts){
+  return new Promise(resolve=>{
+    let done=false;
+    const finish=(val)=>{ if(done) return; done=true; clearTimeout(timer); delete pendingRemote[seat.id]; resolve(val); };
+    const timer=setTimeout(()=>{
+      if(done) return;
+      logPublic(`⏰ ${seat.name} 操作超时，系统自动处理。`,'warn');
+      let def=null;
+      if(opts.type==='vote' && alivePlayers().length>1) def=pick(alivePlayers().filter(x=>x.id!==seat.id)).id;
+      finish(def);
+    }, 40000);
+    pendingRemote[seat.id]={resolve:finish, opts};
+    game.pendingFor=seat.id; game.pendingAction=opts; broadcastState();
+  });
+}
+function adoptState(state){
+  game = JSON.parse(JSON.stringify(state));
+  game.humanId = mySeatId;
+  renderAll();
+}
+function renderClientAction(){
+  const area=$('action-area');
+  if(game.winner){ return; }
+  if(game.pendingFor===game.humanId && game.pendingAction){
+    const key = game.pendingAction.type+':'+game.pendingFor;
+    if(currentActionKey!==key){ renderHumanAction(game.pendingAction); currentActionKey=key; }
+  } else {
+    currentActionKey=null; clearActionUI();
+  }
+}
+function renderLobby(){
+  const area=$('action-area');
+  if(isHost){
+    const ready = occupiedCount()===game.roomSize;
+    area.innerHTML = `<div class="action-title">🏠 房间 ${roomCode}</div>
+      <div class="waiting">已加入 ${occupiedCount()}/${game.roomSize}</div>
+      ${ready?`<button class="big-btn" onclick="startOnlineGame()" style="width:100%">▶ 开始游戏</button>`
+            :`<div class="waiting">等待其他玩家加入…<br>把当前网址发给朋友，输入房间码 ${roomCode} 即可加入</div>`}
+      <div class="hint">提示：房主标签页需保持打开；企业/校园网防火墙可能无法直连。</div>`;
+  } else {
+    area.innerHTML = `<div class="action-title">🏠 房间 ${roomCode}</div>
+      <div class="waiting">你已加入座位 ${game.humanId+1}，等待房主开始游戏…</div>`;
+  }
+  setSheet(true);
+}
+
+/* ================================================================
+   十二、主菜单与背景动画初始化
+   ================================================================ */
+function selectMode(m){
+  menuMode=m;
+  $('btn-ai').classList.toggle('active', m==='ai');
+  $('btn-online').classList.toggle('active', m==='online');
+  $('online-box').style.display = m==='online'?'block':'none';
+  $('btn-start').textContent = m==='online'?'🏠 创建房间':'▶ 开始游戏';
+}
+function mainStart(){
+  initAudio();
+  const n=+$('pcount').value, name=$('myname').value.trim()||'你';
+  if(menuMode==='ai'){ startAI(n, name); }
+  else { hostRoom(n, name); }
+}
+function buildRolesHelp(){
+  $('roles-help').innerHTML = Object.values(PROF).map(r=>
+    `<div class="role-chip"><b style="color:${r.color}">${r.icon} ${r.name}</b><span>${r.skillName}：${r.skillDesc}</span></div>`).join('');
+}
+function buildBackground(){
+  const bg=$('bg-anim');
+  const sym=['♪','♫','♩','♬','♭','♮'];
+  for(let i=0;i<18;i++){
+    const n=document.createElement('div');
+    n.className='note';
+    n.textContent=sym[rand(sym.length)];
+    n.style.left=Math.random()*100+'%';
+    n.style.animationDuration=(9+Math.random()*10)+'s';
+    n.style.animationDelay=(Math.random()*10)+'s';
+    n.style.fontSize=(16+Math.random()*22)+'px';
+    n.style.color = ['#ff2e97','#00e5ff','#ffd700','#b388ff'][rand(4)];
+    n.style.opacity=.3+Math.random()*.5;
+    bg.appendChild(n);
+  }
+  const eq=$('eq');
+  for(let i=0;i<26;i++){ const b=document.createElement('i'); b.style.animationDelay=(Math.random()*.9)+'s'; b.style.animationDuration=(0.6+Math.random()*0.8)+'s'; eq.appendChild(b); }
+}
+$('chat-send').onclick=()=>sendChat($('chat-input').value);
+$('chat-input').onkeydown=e=>{ if(e.key==='Enter') sendChat($('chat-input').value); };
+window.addEventListener('load', ()=>{ showScreen('main'); buildRolesHelp(); buildBackground(); });
+</script>
+</body>
+</html>
